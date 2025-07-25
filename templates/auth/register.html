@@ -21,15 +21,24 @@
             <div class="space-y-4">
                 <div>
                     <label for="name" class="block text-sm font-medium text-gray-700">Full Name</label>
-                    <input id="name" name="name" type="text" required class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" placeholder="Your full name">
+                    <input id="name" name="name" type="text" required
+                           value="{{ form_data.name if form_data else'' }}"
+                           class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                           placeholder="Your full name">
                 </div>
                 <div>
                     <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
-                    <input id="email" name="email" type="email" required class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" placeholder="your.email@example.com">
+                    <input id="email" name="email" type="email" required
+                           value="{{ form_data.name if form_data else'' }}"
+                           class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                           placeholder="your.email@example.com">
                 </div>
                 <div>
                     <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                    <input id="password" name="password" type="password" required class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" placeholder="Choose a strong password">
+                    <input id="password" name="password" type="password" required
+                           value="{{ form_data.name if form_data else'' }}"
+                           class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                           placeholder="Choose a strong password">
                 </div>
                 <div>
                     <label for="role" class="block text-sm font-medium text-gray-700">Role</label>

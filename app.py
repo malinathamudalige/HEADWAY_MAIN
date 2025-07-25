@@ -129,6 +129,11 @@ def register():
         password = request.form['password']
         role = request.form.get('role', 'student')
 
+        # Commit 01
+        if len(password) < 8 or not any(c.isdigit() for c in password):
+            flash("Try a password with at least 8 characters.", 'error')
+            return render_template('auth/register.html', form_data=request.form)
+
         # Check if user already exists
         existing_user = UserModel.find_user_by_email(email)
         if existing_user:
