@@ -1,0 +1,15 @@
+# Updated requirements.txt with MongoDB dependencies
+Flask==2.3.3
+Werkzeug==3.0.6
+Jinja2==3.1.6
+click==8.1.7
+itsdangerous==2.1.2
+MarkupSafe==2.1.3
+
+# MongoDB dependencies
+pymongo==4.6.3
+dnspython==2.4.2
+
+# Environment management
+python-dotenv==1.0.0
+

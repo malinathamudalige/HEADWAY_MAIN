@@ -1,0 +1,144 @@
+<!-- templates/content_manager/create_course.html -->
+{% extends "base.html" %}
+
+{% block title %}Create Course - Headway E-Learning{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Create New Course</h1>
+        <p class="mt-2 text-gray-600">Design and publish a new course for students</p>
+    </div>
+
+    <!-- Course Creation Form -->
+    <form method="POST" class="space-y-8">
+        <!-- Basic Information -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">Basic Information</h2>
+            </div>
+            <div class="p-6 space-y-6">
+                <div>
+                    <label for="title" class="block text-sm font-medium text-gray-700">Course Title</label>
+                    <input type="text" name="title" id="title" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm" placeholder="Enter course title">
+                </div>
+
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+                    <textarea name="description" id="description" rows="4" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm" placeholder="Describe what students will learn in this course"></textarea>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label for="level" class="block text-sm font-medium text-gray-700">Level</label>
+                        <select name="level" id="level" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                            <option value="">Select Level</option>
+                            <option value="Beginner">Beginner</option>
+                            <option value="Intermediate">Intermediate</option>
+                            <option value="Advanced">Advanced</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="duration" class="block text-sm font-medium text-gray-700">Duration</label>
+                        <input type="text" name="duration" id="duration" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm" placeholder="e.g., 8 weeks">
+                    </div>
+
+                    <div>
+                        <label for="instructor" class="block text-sm font-medium text-gray-700">Instructor</label>
+                        <select name="instructor" id="instructor" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                            <option value="">Select Instructor</option>
+                            <option value="Sarah Johnson">Sarah Johnson</option>
+                            <option value="Michael Brown">Michael Brown</option>
+                            <option value="Emma Wilson">Emma Wilson</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Course Content -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">Course Content</h2>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4" x-data="{ modules: [{ title: '', type: 'lesson', duration: '' }] }">
+                    <template x-for="(module, index) in modules" :key="index">
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-sm font-medium text-gray-900" x-text="'Module ' + (index + 1)"></h3>
+                                <button type="button" @click="modules.splice(index, 1)" x-show="modules.length > 1" class="text-red-400 hover:text-red-600">
+                                    <i class="fas fa-trash text-sm"></i>
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700">Module Title</label>
+                                    <input type="text" x-model="module.title" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm" placeholder="Enter module title">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Type</label>
+                                    <select x-model="module.type" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                                        <option value="lesson">Lesson</option>
+                                        <option value="quiz">Quiz</option>
+                                        <option value="assignment">Assignment</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    
+                    <button type="button" @click="modules.push({ title: '', type: 'lesson', duration: '' })" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        <i class="fas fa-plus mr-2"></i>
+                        Add Module
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Course Settings -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">Course Settings</h2>
+            </div>
+            <div class="p-6 space-y-6">
+                <div class="flex items-center">
+                    <input type="checkbox" name="auto_enroll" id="auto_enroll" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                    <label for="auto_enroll" class="ml-2 block text-sm text-gray-900">
+                        Allow automatic enrollment
+                    </label>
+                </div>
+
+                <div class="flex items-center">
+                    <input type="checkbox" name="certificate" id="certificate" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                    <label for="certificate" class="ml-2 block text-sm text-gray-900">
+                        Provide completion certificate
+                    </label>
+                </div>
+
+                <div class="flex items-center">
+                    <input type="checkbox" name="discussion" id="discussion" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                    <label for="discussion" class="ml-2 block text-sm text-gray-900">
+                        Enable discussion forums
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex justify-end space-x-3">
+            <a href="{{ url_for('content_manager_courses') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                Cancel
+            </a>
+            <button type="submit" name="action" value="draft" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                Save as Draft
+            </button>
+            <button type="submit" name="action" value="publish" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700">
+                Publish Course
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

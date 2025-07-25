@@ -1,0 +1,285 @@
+<!-- templates/content_manager/edit_course.html -->
+{% extends "base.html" %}
+
+{% block title %}Edit Course - {{ course.title }} - Headway E-Learning{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-8" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-4">
+            <li>
+                <a href="{{ url_for('content_manager_dashboard') }}" class="text-gray-400 hover:text-gray-500">
+                    <i class="fas fa-home"></i>
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                    <a href="{{ url_for('content_manager_courses') }}" class="text-gray-400 hover:text-gray-500">Courses</a>
+                </div>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                    <a href="{{ url_for('content_manager_course_detail', course_id=course._id) }}" class="text-gray-400 hover:text-gray-500">{{ course.title }}</a>
+                </div>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                    <span class="text-gray-500">Edit Course</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Edit Course</h1>
+        <p class="mt-2 text-gray-600">Update course information and settings</p>
+    </div>
+
+    <!-- Edit Course Form -->
+    <div class="bg-white shadow rounded-lg">
+        <form method="POST" action="{{ url_for('content_manager_edit_course_post', course_id=course._id) }}" class="space-y-6 p-6">
+            <!-- Basic Information -->
+            <div class="border-b border-gray-200 pb-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+                <div class="grid grid-cols-1 gap-6">
+                    <!-- Course Title -->
+                    <div>
+                        <label for="title" class="block text-sm font-medium text-gray-700">Course Title</label>
+                        <input type="text" name="title" id="title" value="{{ course.title }}" required
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                    </div>
+
+                    <!-- Course Description -->
+                    <div>
+                        <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+                        <textarea name="description" id="description" rows="4" required
+                                  class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">{{ course.description }}</textarea>
+                    </div>
+
+                    <!-- Course Settings Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Level -->
+                        <div>
+                            <label for="level" class="block text-sm font-medium text-gray-700">Level</label>
+                            <select name="level" id="level" required
+                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                                <option value="Beginner" {{ 'selected' if course.level == 'Beginner' }}>Beginner</option>
+                                <option value="Intermediate" {{ 'selected' if course.level == 'Intermediate' }}>Intermediate</option>
+                                <option value="Advanced" {{ 'selected' if course.level == 'Advanced' }}>Advanced</option>
+                            </select>
+                        </div>
+
+                        <!-- Duration -->
+                        <div>
+                            <label for="duration" class="block text-sm font-medium text-gray-700">Duration</label>
+                            <input type="text" name="duration" id="duration" value="{{ course.duration }}" placeholder="e.g., 8 weeks"
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                        </div>
+
+                        <!-- Category -->
+                        <div>
+                            <label for="category" class="block text-sm font-medium text-gray-700">Category</label>
+                            <select name="category" id="category"
+                                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                                <option value="Grammar" {{ 'selected' if course.category == 'Grammar' }}>Grammar</option>
+                                <option value="Business English" {{ 'selected' if course.category == 'Business English' }}>Business English</option>
+                                <option value="Academic English" {{ 'selected' if course.category == 'Academic English' }}>Academic English</option>
+                                <option value="Conversation" {{ 'selected' if course.category == 'Conversation' }}>Conversation</option>
+                                <option value="Writing" {{ 'selected' if course.category == 'Writing' }}>Writing</option>
+                                <option value="Reading" {{ 'selected' if course.category == 'Reading' }}>Reading</option>
+                                <option value="Listening" {{ 'selected' if course.category == 'Listening' }}>Listening</option>
+                                <option value="Test Preparation" {{ 'selected' if course.category == 'Test Preparation' }}>Test Preparation</option>
+                                <option value="Professional English" {{ 'selected' if course.category == 'Professional English' }}>Professional English</option>
+                                <option value="General" {{ 'selected' if course.category == 'General' }}>General</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instructor Assignment -->
+            <div class="border-b border-gray-200 pb-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Instructor Assignment</h3>
+                <div>
+                    <label for="instructor_id" class="block text-sm font-medium text-gray-700">Assigned Instructor</label>
+                    <select name="instructor_id" id="instructor_id" required
+                            class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                        <option value="">Select an instructor...</option>
+                        {% for educator in educators %}
+                        <option value="{{ educator._id }}" {{ 'selected' if educator._id == course.instructor_id }}>
+                            {{ educator.name }} ({{ educator.email }})
+                            {% if educator.department %} - {{ educator.department }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <p class="mt-2 text-sm text-gray-500">Choose an educator to be responsible for this course.</p>
+                </div>
+            </div>
+
+            <!-- Course Status -->
+            <div class="border-b border-gray-200 pb-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Course Status</h3>
+                <div>
+                    <label for="status" class="block text-sm font-medium text-gray-700">Publication Status</label>
+                    <select name="status" id="status"
+                            class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                        <option value="draft" {{ 'selected' if course.status == 'draft' }}>Draft</option>
+                        <option value="review" {{ 'selected' if course.status == 'review' }}>Under Review</option>
+                        <option value="published" {{ 'selected' if course.status == 'published' }}>Published</option>
+                        <option value="archived" {{ 'selected' if course.status == 'archived' }}>Archived</option>
+                    </select>
+                    <p class="mt-2 text-sm text-gray-500">
+                        <span class="font-medium">Draft:</span> Course is being created and is not visible to students.<br>
+                        <span class="font-medium">Review:</span> Course is ready for review before publishing.<br>
+                        <span class="font-medium">Published:</span> Course is live and available to students.<br>
+                        <span class="font-medium">Archived:</span> Course is no longer active but preserved.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Course Image -->
+            <div class="border-b border-gray-200 pb-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Course Image</h3>
+                <div>
+                    <label for="image" class="block text-sm font-medium text-gray-700">Image URL</label>
+                    <input type="url" name="image" id="image" value="{{ course.image }}" placeholder="https://example.com/image.jpg"
+                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                    <p class="mt-2 text-sm text-gray-500">Provide a URL to the course image or leave blank for default.</p>
+
+                    {% if course.image %}
+                    <div class="mt-4">
+                        <p class="text-sm font-medium text-gray-700 mb-2">Current Image:</p>
+                        <img src="{{ course.image }}" alt="{{ course.title }}" class="h-32 w-48 object-cover rounded-lg border border-gray-200">
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Additional Settings -->
+            <div>
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Additional Settings</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Prerequisites -->
+                    <div>
+                        <label for="prerequisites" class="block text-sm font-medium text-gray-700">Prerequisites</label>
+                        <textarea name="prerequisites" id="prerequisites" rows="3" placeholder="List any prerequisites for this course..."
+                                  class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">{{ course.prerequisites if course.prerequisites }}</textarea>
+                    </div>
+
+                    <!-- Learning Objectives -->
+                    <div>
+                        <label for="objectives" class="block text-sm font-medium text-gray-700">Learning Objectives</label>
+                        <textarea name="objectives" id="objectives" rows="3" placeholder="What will students learn in this course..."
+                                  class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">{{ course.objectives if course.objectives }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="flex items-center justify-between pt-6 border-t border-gray-200">
+                <div class="flex space-x-3">
+                    <a href="{{ url_for('content_manager_course_detail', course_id=course._id) }}"
+                       class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        <i class="fas fa-arrow-left mr-2"></i>
+                        Back to Course
+                    </a>
+                    <button type="button" id="previewBtn"
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        <i class="fas fa-eye mr-2"></i>
+                        Preview Changes
+                    </button>
+                </div>
+                <div class="flex space-x-3">
+                    <button type="button" id="saveAsDraftBtn"
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        <i class="fas fa-save mr-2"></i>
+                        Save as Draft
+                    </button>
+                    <button type="submit"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700">
+                        <i class="fas fa-check mr-2"></i>
+                        Update Course
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Preview Modal (Optional Enhancement) -->
+<div id="previewModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Course Preview</h3>
+                <button type="button" id="closePreview" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="previewContent" class="space-y-4">
+                <!-- Preview content will be generated here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Preview functionality
+    document.getElementById('previewBtn').addEventListener('click', function() {
+        const title = document.getElementById('title').value;
+        const description = document.getElementById('description').value;
+        const level = document.getElementById('level').value;
+        const duration = document.getElementById('duration').value;
+        const category = document.getElementById('category').value;
+
+        const previewContent = document.getElementById('previewContent');
+        previewContent.innerHTML = `
+            <div class="border border-gray-200 rounded-lg p-4">
+                <h4 class="text-xl font-semibold text-gray-900 mb-2">${title}</h4>
+                <p class="text-gray-600 mb-4">${description}</p>
+                <div class="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                        <span class="font-medium text-gray-700">Level:</span>
+                        <span class="text-gray-600">${level}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Duration:</span>
+                        <span class="text-gray-600">${duration}</span>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Category:</span>
+                        <span class="text-gray-600">${category}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('previewModal').classList.remove('hidden');
+    });
+
+    // Close preview modal
+    document.getElementById('closePreview').addEventListener('click', function() {
+        document.getElementById('previewModal').classList.add('hidden');
+    });
+
+    // Save as draft functionality
+    document.getElementById('saveAsDraftBtn').addEventListener('click', function() {
+        document.getElementById('status').value = 'draft';
+        document.querySelector('form').submit();
+    });
+
+    // Close modal when clicking outside
+    document.getElementById('previewModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            this.classList.add('hidden');
+        }
+    });
+});
+</script>
+{% endblock %}

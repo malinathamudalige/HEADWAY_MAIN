@@ -1,0 +1,258 @@
+<!-- templates/student/take_quiz.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ quiz.title }} - Headway E-Learning{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Quiz Header -->
+    <div class="bg-gradient-to-r from-purple-500 to-blue-600 rounded-lg shadow-lg mb-8">
+        <div class="px-8 py-6 text-white">
+            <h1 class="text-3xl font-bold mb-2">{{ quiz.title }}</h1>
+            <p class="text-purple-100 mb-4">{{ module.title }} • {{ course.title }}</p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center">
+                    <div class="text-2xl font-bold">{{ quiz.questions|length }}</div>
+                    <div class="text-sm text-purple-200">Questions</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold">{{ quiz.time_limit or 30 }}</div>
+                    <div class="text-sm text-purple-200">Minutes</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold">{{ quiz.passing_score or 70 }}%</div>
+                    <div class="text-sm text-purple-200">Pass Score</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold">{{ quiz.total_points or (quiz.questions|length * 10) }}</div>
+                    <div class="text-sm text-purple-200">Total Points</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz Instructions -->
+    <div class="bg-white shadow rounded-lg mb-8">
+        <div class="p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Instructions</h2>
+            <div class="prose text-gray-700">
+                <ul class="space-y-2">
+                    <li>• Read each question carefully before selecting your answer</li>
+                    <li>• You can navigate between questions using the Previous/Next buttons</li>
+                    <li>• Make sure to answer all questions before submitting</li>
+                    <li>• Your progress is automatically saved</li>
+                    <li>• You need {{ quiz.passing_score or 70 }}% to pass this quiz</li>
+                    <li>• Time limit: {{ quiz.time_limit or 30 }} minutes</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz Interface -->
+    <div x-data="quizApp()" x-init="startTimer()" class="bg-white shadow rounded-lg">
+        <!-- Quiz Progress Header -->
+        <div class="px-6 py-4 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-sm text-gray-500">Question</span>
+                    <span class="text-lg font-semibold text-gray-900" x-text="`${currentQuestion + 1} of ${totalQuestions}`"></span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- Timer -->
+                    <div class="flex items-center text-sm">
+                        <i class="fas fa-clock text-gray-400 mr-2"></i>
+                        <span x-text="formatTime(timeRemaining)" :class="timeRemaining < 300 ? 'text-red-600 font-semibold' : 'text-gray-600'"></span>
+                    </div>
+                    <!-- Progress Bar -->
+                    <div class="w-32">
+                        <div class="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>Progress</span>
+                            <span x-text="`${Math.round((answeredQuestions.size / totalQuestions) * 100)}%`"></span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                                 :style="`width: ${(answeredQuestions.size / totalQuestions) * 100}%`"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quiz Form -->
+        <form method="POST" action="{{ url_for('submit_quiz', quiz_id=quiz._id) }}" @submit="submitForm($event)">
+            <input type="hidden" name="time_taken" x-model="timeTaken">
+
+            <!-- Question Content -->
+            <div class="p-8">
+                {% for question in quiz.questions %}
+                <div x-show="currentQuestion === {{ loop.index0 }}" class="question-container">
+                    <div class="mb-6">
+                        <h3 class="text-xl font-medium text-gray-900 mb-4">
+                            {{ loop.index }}. {{ question.question }}
+                        </h3>
+
+                        <div class="space-y-3">
+                            {% for option in question.options %}
+                            <label class="flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-blue-300 transition-colors option-label"
+                                   :class="answers[{{ loop.index0 }}] === {{ loop.index0 }} ? 'border-blue-500 bg-blue-50' : ''">
+                                <input type="radio"
+                                       name="question_{{ loop.index0 }}"
+                                       value="{{ loop.index0 }}"
+                                       x-model="answers[{{ loop.index0 }}]"
+                                       @change="markAnswered({{ loop.index0 }})"
+                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300">
+                                <span class="ml-3 text-gray-700">{{ option }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Navigation -->
+            <div class="px-8 py-6 border-t border-gray-200 flex items-center justify-between">
+                <button type="button"
+                        @click="previousQuestion()"
+                        :disabled="currentQuestion === 0"
+                        :class="currentQuestion === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'"
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white transition-colors">
+                    <i class="fas fa-chevron-left mr-2"></i>
+                    Previous
+                </button>
+
+                <!-- Question Navigation Dots -->
+                <div class="flex space-x-2">
+                    {% for question in quiz.questions %}
+                    <button type="button"
+                            @click="goToQuestion({{ loop.index0 }})"
+                            :class="{
+                                'bg-blue-500 text-white': currentQuestion === {{ loop.index0 }},
+                                'bg-green-500 text-white': answeredQuestions.has({{ loop.index0 }}) && currentQuestion !== {{ loop.index0 }},
+                                'bg-gray-200 text-gray-600': !answeredQuestions.has({{ loop.index0 }}) && currentQuestion !== {{ loop.index0 }}
+                            }"
+                            class="w-8 h-8 rounded-full text-sm font-medium transition-colors">
+                        {{ loop.index }}
+                    </button>
+                    {% endfor %}
+                </div>
+
+                <div class="flex space-x-3">
+                    <button type="button"
+                            @click="nextQuestion()"
+                            x-show="currentQuestion < totalQuestions - 1"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                        Next
+                        <i class="fas fa-chevron-right ml-2"></i>
+                    </button>
+
+                    <button type="submit"
+                            x-show="currentQuestion === totalQuestions - 1"
+                            :disabled="answeredQuestions.size < totalQuestions"
+                            :class="answeredQuestions.size < totalQuestions ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-700'"
+                            class="inline-flex items-center px-6 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 transition-colors">
+                        <i class="fas fa-check mr-2"></i>
+                        Submit Quiz
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Quiz JavaScript -->
+<script>
+function quizApp() {
+    return {
+        currentQuestion: 0,
+        totalQuestions: {{ quiz.questions|length }},
+        answers: {},
+        answeredQuestions: new Set(),
+        timeLimit: {{ (quiz.time_limit or 30) * 60 }}, // Convert to seconds
+        timeRemaining: {{ (quiz.time_limit or 30) * 60 }},
+        timeTaken: 0,
+        timerInterval: null,
+
+        startTimer() {
+            this.timerInterval = setInterval(() => {
+                if (this.timeRemaining > 0) {
+                    this.timeRemaining--;
+                    this.timeTaken = this.timeLimit - this.timeRemaining;
+                } else {
+                    this.timeUp();
+                }
+            }, 1000);
+        },
+
+        formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        },
+
+        timeUp() {
+            clearInterval(this.timerInterval);
+            alert('Time is up! Your quiz will be submitted automatically.');
+            this.submitForm();
+        },
+
+        nextQuestion() {
+            if (this.currentQuestion < this.totalQuestions - 1) {
+                this.currentQuestion++;
+            }
+        },
+
+        previousQuestion() {
+            if (this.currentQuestion > 0) {
+                this.currentQuestion--;
+            }
+        },
+
+        goToQuestion(index) {
+            this.currentQuestion = index;
+        },
+
+        markAnswered(questionIndex) {
+            this.answeredQuestions.add(questionIndex);
+        },
+
+        submitForm(event) {
+            if (event) {
+                event.preventDefault();
+            }
+
+            clearInterval(this.timerInterval);
+
+            // Check if all questions are answered
+            if (this.answeredQuestions.size < this.totalQuestions) {
+                if (!confirm(`You have only answered ${this.answeredQuestions.size} out of ${this.totalQuestions} questions. Are you sure you want to submit?`)) {
+                    return;
+                }
+            }
+
+            // Submit the form
+            const form = event ? event.target : document.querySelector('form');
+            form.submit();
+        }
+    }
+}
+
+// Auto-save answers periodically
+setInterval(() => {
+    // Save to localStorage for recovery
+    const quizData = {
+        answers: window.quizApp ? window.quizApp.answers : {},
+        currentQuestion: window.quizApp ? window.quizApp.currentQuestion : 0,
+        timeRemaining: window.quizApp ? window.quizApp.timeRemaining : 0
+    };
+    localStorage.setItem('quiz_progress_{{ quiz._id }}', JSON.stringify(quizData));
+}, 10000); // Save every 10 seconds
+
+// Warn before leaving page
+window.addEventListener('beforeunload', function(e) {
+    const message = 'Are you sure you want to leave? Your quiz progress may be lost.';
+    e.returnValue = message;
+    return message;
+});
+</script>
+{% endblock %}

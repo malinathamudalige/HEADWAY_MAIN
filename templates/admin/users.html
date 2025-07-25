@@ -1,0 +1,736 @@
+<!-- templates/admin/users.html -->
+{% extends "base.html" %}
+
+{% block title %}User Management - Headway E-Learning{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8 flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">User Management</h1>
+            <p class="mt-2 text-gray-600">Manage all users in the system</p>
+        </div>
+        <button onclick="showAddUserModal()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700">
+            <i class="fas fa-plus mr-2"></i>
+            Add New User
+        </button>
+    </div>
+
+    <!-- User Management Notice -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-blue-600 text-lg"></i>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-blue-800">User Management Features</h3>
+                <p class="text-sm text-blue-700 mt-1">
+                    You can add, view, edit, and delete users. Use the toggle switch to activate/deactivate users. Inactive users cannot log into the system.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white p-4 rounded-lg shadow mb-6">
+        <form method="GET" action="{{ url_for('admin_users') }}">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Search</label>
+                    <input type="text" name="search" value="{{ search }}" placeholder="Search users..." class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Role</label>
+                    <select name="role" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                        <option value="">All Roles</option>
+                        <option value="student" {{ 'selected' if role_filter == 'student' }}>Students</option>
+                        <option value="educator" {{ 'selected' if role_filter == 'educator' }}>Educators</option>
+                        <option value="content_manager" {{ 'selected' if role_filter == 'content_manager' }}>Content Managers</option>
+                        <option value="admin" {{ 'selected' if role_filter == 'admin' }}>Administrators</option>
+                        <option value="system_admin" {{ 'selected' if role_filter == 'system_admin' }}>System Admins</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Status</label>
+                    <select name="status" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                        <option value="">All Status</option>
+                        <option value="active" {{ 'selected' if status_filter == 'active' }}>Active</option>
+                        <option value="inactive" {{ 'selected' if status_filter == 'inactive' }}>Inactive</option>
+                    </select>
+                </div>
+                <div class="flex items-end space-x-2">
+                    <button type="submit" class="flex-1 bg-primary border border-transparent rounded-md py-2 px-4 flex items-center justify-center text-sm font-medium text-white hover:bg-blue-700">
+                        <i class="fas fa-search mr-2"></i>
+                        Filter
+                    </button>
+                    <a href="{{ url_for('admin_users') }}" class="bg-gray-300 border border-transparent rounded-md py-2 px-4 flex items-center justify-center text-sm font-medium text-gray-700 hover:bg-gray-400">
+                        <i class="fas fa-times"></i>
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Results Summary -->
+    <div class="mb-4">
+        <p class="text-sm text-gray-600">
+            Showing {{ all_users|length }} user(s)
+            {% if search or role_filter or status_filter %}
+                (filtered)
+            {% endif %}
+        </p>
+    </div>
+
+    <!-- Users Table -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for user_data in all_users %}
+                <tr class="hover:bg-gray-50" id="user-row-{{ user_data._id }}">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10">
+                                <img class="h-10 w-10 rounded-full" src="https://ui-avatars.com/api/?name={{ user_data.name }}&background=3B82F6&color=fff" alt="">
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">{{ user_data.name }}</div>
+                                <div class="text-sm text-gray-500">{{ user_data.email }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if user_data.role == 'admin' %}bg-red-100 text-red-800
+                            {% elif user_data.role == 'content_manager' %}bg-purple-100 text-purple-800
+                            {% elif user_data.role == 'educator' %}bg-blue-100 text-blue-800
+                            {% elif user_data.role == 'student' %}bg-green-100 text-green-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ user_data.role.replace('_', ' ').title() }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {{ user_data.created_at.strftime('%Y-%m-%d') if user_data.created_at else 'N/A' }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <!-- Status Toggle Switch -->
+                        <div class="flex items-center">
+                            {% if user_data._id == user._id or user_data.role == 'system_admin' %}
+                                <!-- Protected users - show status without toggle -->
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    {% if user_data.status == 'active' %}bg-green-100 text-green-800
+                                    {% else %}bg-red-100 text-red-800{% endif %}">
+                                    {{ user_data.status.title() }}
+                                </span>
+                                <span class="ml-2 text-xs text-gray-400">
+                                    {% if user_data._id == user._id %}(You){% else %}(Protected){% endif %}
+                                </span>
+                            {% else %}
+                                <!-- Toggle switch for other users -->
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox"
+                                           class="sr-only peer status-toggle"
+                                           data-user-id="{{ user_data._id }}"
+                                           data-user-name="{{ user_data.name }}"
+                                           {{ 'checked' if user_data.status == 'active' }}>
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
+                                    <span class="ml-3 text-sm font-medium text-gray-700" id="status-text-{{ user_data._id }}">
+                                        {{ user_data.status.title() }}
+                                    </span>
+                                </label>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div class="flex items-center space-x-1">
+                            <!-- Role Management Buttons -->
+                            {% if user_data.role in ['educator', 'admin', 'content_manager'] and user_data._id != user._id %}
+                                {% if user_data.role == 'educator' %}
+                                    <button onclick="showRoleChangeModal('{{ user_data._id }}', '{{ user_data.name }}', 'educator', 'admin')"
+                                            class="inline-flex items-center px-1.5 py-1 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700"
+                                            title="Upgrade to Admin">
+                                        <i class="fas fa-arrow-up mr-1"></i>
+                                        Admin
+                                    </button>
+                                    <button onclick="showRoleChangeModal('{{ user_data._id }}', '{{ user_data.name }}', 'educator', 'content_manager')"
+                                            class="inline-flex items-center px-1.5 py-1 border border-transparent text-xs font-medium rounded text-white bg-purple-600 hover:bg-purple-700"
+                                            title="Assign as Content Manager">
+                                        <i class="fas fa-arrow-right mr-1"></i>
+                                        CM
+                                    </button>
+                                {% elif user_data.role == 'admin' %}
+                                    <button onclick="showRoleChangeModal('{{ user_data._id }}', '{{ user_data.name }}', 'admin', 'educator')"
+                                            class="inline-flex items-center px-1.5 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700"
+                                            title="Downgrade to Educator">
+                                        <i class="fas fa-arrow-down mr-1"></i>
+                                        Educator
+                                    </button>
+                                    <button onclick="showRoleChangeModal('{{ user_data._id }}', '{{ user_data.name }}', 'admin', 'content_manager')"
+                                            class="inline-flex items-center px-1.5 py-1 border border-transparent text-xs font-medium rounded text-white bg-purple-600 hover:bg-purple-700"
+                                            title="Reassign as Content Manager">
+                                        <i class="fas fa-arrow-right mr-1"></i>
+                                        CM
+                                    </button>
+                                {% elif user_data.role == 'content_manager' %}
+                                    <button onclick="showRoleChangeModal('{{ user_data._id }}', '{{ user_data.name }}', 'content_manager', 'admin')"
+                                            class="inline-flex items-center px-1.5 py-1 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700"
+                                            title="Upgrade to Admin">
+                                        <i class="fas fa-arrow-up mr-1"></i>
+                                        Admin
+                                    </button>
+                                    <button onclick="showRoleChangeModal('{{ user_data._id }}', '{{ user_data.name }}', 'content_manager', 'educator')"
+                                            class="inline-flex items-center px-1.5 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700"
+                                            title="Downgrade to Educator">
+                                        <i class="fas fa-arrow-down mr-1"></i>
+                                        Educator
+                                    </button>
+                                {% endif %}
+                            {% elif user_data._id == user._id %}
+                                <span class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-400 bg-gray-100 rounded cursor-not-allowed" title="Cannot change own role">
+                                    <i class="fas fa-lock mr-1"></i>
+                                    Own Role
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-400 bg-gray-100 rounded cursor-not-allowed" title="Role changes not allowed for this user type">
+                                    <i class="fas fa-ban mr-1"></i>
+                                    Protected
+                                </span>
+                            {% endif %}
+
+                            <!-- Standard action buttons -->
+                            <button onclick="viewUser('{{ user_data._id }}')" class="text-gray-400 hover:text-gray-600 ml-2" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button onclick="editUser('{{ user_data._id }}')" class="text-primary hover:text-blue-700" title="Edit User">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            {% if user_data._id != user._id and user_data.role != 'system_admin' %}
+                            <button onclick="deleteUser('{{ user_data._id }}', '{{ user_data.name }}')" class="text-red-400 hover:text-red-600" title="Delete User">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if not all_users %}
+        <div class="text-center py-12">
+            <i class="fas fa-users text-gray-400 text-6xl mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">No users found</h3>
+            <p class="text-gray-600">Try adjusting your filters or add a new user.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div id="addUserModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-10 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Add New User</h3>
+                <button onclick="hideAddUserModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="addUserForm" method="POST" action="{{ url_for('admin_add_user') }}">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Name *</label>
+                        <input type="text" name="name" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Email *</label>
+                        <input type="email" name="email" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Password *</label>
+                        <input type="password" name="password" required minlength="6" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Role</label>
+                        <select name="role" id="addUserRole" onchange="toggleRoleFields('add')" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                            <option value="student">Student</option>
+                            <option value="educator">Educator</option>
+                            <option value="content_manager">Content Manager</option>
+                            <option value="admin">Administrator</option>
+                        </select>
+                    </div>
+                    <div id="addEducatorFields" class="space-y-4 hidden">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Department</label>
+                            <input type="text" name="department" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Experience</label>
+                            <input type="text" name="experience" placeholder="e.g., 3 years" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="flex space-x-3 mt-6">
+                    <button type="button" onclick="hideAddUserModal()" class="flex-1 px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md shadow-sm hover:bg-gray-400">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 px-4 py-2 bg-primary text-white text-base font-medium rounded-md shadow-sm hover:bg-blue-700">
+                        Create User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- View User Modal -->
+<div id="viewUserModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-10 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">User Details</h3>
+                <button onclick="hideViewUserModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="viewUserContent">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div id="editUserModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-10 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Edit User</h3>
+                <button onclick="hideEditUserModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="editUserForm" method="POST">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Name *</label>
+                        <input type="text" name="name" id="editUserName" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Email *</label>
+                        <input type="email" name="email" id="editUserEmail" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">New Password (leave blank to keep current)</label>
+                        <input type="password" name="password" minlength="6" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                    </div>
+                    <div id="editEducatorFields" class="space-y-4 hidden">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Department</label>
+                            <input type="text" name="department" id="editUserDepartment" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Experience</label>
+                            <input type="text" name="experience" id="editUserExperience" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                        </div>
+                    </div>
+                </div>
+                <div class="flex space-x-3 mt-6">
+                    <button type="button" onclick="hideEditUserModal()" class="flex-1 px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md shadow-sm hover:bg-gray-400">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 px-4 py-2 bg-primary text-white text-base font-medium rounded-md shadow-sm hover:bg-blue-700">
+                        Update User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete User Modal -->
+<div id="deleteUserModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center">
+                <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+                </div>
+            </div>
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Delete User</h3>
+                <div class="mt-2">
+                    <p class="text-sm text-gray-500" id="deleteUserMessage">
+                        <!-- Message will be populated by JavaScript -->
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="items-center px-4 py-3">
+            <form id="deleteUserForm" method="POST">
+                <div class="flex space-x-3">
+                    <button type="button" onclick="hideDeleteUserModal()" class="flex-1 px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md shadow-sm hover:bg-gray-400">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-red-700">
+                        Delete User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Role Change Modal (existing) -->
+<div id="roleChangeModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center">
+                <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100">
+                    <i class="fas fa-exclamation-triangle text-yellow-600 text-xl"></i>
+                </div>
+            </div>
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Confirm Role Change</h3>
+                <div class="mt-2">
+                    <p class="text-sm text-gray-500" id="roleChangeMessage">
+                        <!-- Message will be populated by JavaScript -->
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="items-center px-4 py-3">
+            <form id="roleChangeForm" method="POST">
+                <input type="hidden" name="new_role" id="newRoleInput">
+                <div class="flex space-x-3">
+                    <button type="button" onclick="hideRoleChangeModal()" class="flex-1 px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md shadow-sm hover:bg-gray-400">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-red-700" id="confirmRoleChangeButton">
+                        Confirm
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Status Toggle Functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const statusToggles = document.querySelectorAll('.status-toggle');
+
+    statusToggles.forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            const userId = this.dataset.userId;
+            const userName = this.dataset.userName;
+            const isChecked = this.checked;
+            const newStatus = isChecked ? 'active' : 'inactive';
+
+            // Disable the toggle while processing
+            this.disabled = true;
+
+            // Show confirmation for deactivation
+            if (!isChecked) {
+                if (!confirm(`Are you sure you want to deactivate ${userName}? They will not be able to log into the system.`)) {
+                    this.checked = true; // Revert the toggle
+                    this.disabled = false;
+                    return;
+                }
+            }
+
+            // Make AJAX request to toggle status
+            fetch(`/admin/user/${userId}/toggle-status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the status text
+                    const statusText = document.getElementById(`status-text-${userId}`);
+                    if (statusText) {
+                        statusText.textContent = data.new_status.charAt(0).toUpperCase() + data.new_status.slice(1);
+                    }
+
+                    // Show success message
+                    showNotification(data.message, 'success');
+                } else {
+                    // Revert the toggle on error
+                    this.checked = !isChecked;
+                    showNotification(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                // Revert the toggle on error
+                this.checked = !isChecked;
+                showNotification('An error occurred while updating user status.', 'error');
+                console.error('Error:', error);
+            })
+            .finally(() => {
+                // Re-enable the toggle
+                this.disabled = false;
+            });
+        });
+    });
+});
+
+// Notification function
+function showNotification(message, type) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 p-4 rounded-md shadow-lg z-50 ${
+        type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+        'bg-red-100 text-red-800 border border-red-200'
+    }`;
+    notification.innerHTML = `
+        <div class="flex items-center">
+            <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} mr-2"></i>
+            <span>${message}</span>
+            <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// Add User Modal Functions
+function showAddUserModal() {
+    document.getElementById('addUserModal').classList.remove('hidden');
+}
+
+function hideAddUserModal() {
+    document.getElementById('addUserModal').classList.add('hidden');
+    document.getElementById('addUserForm').reset();
+}
+
+function toggleRoleFields(formType) {
+    const roleSelect = document.getElementById(formType + 'UserRole');
+    const educatorFields = document.getElementById(formType + 'EducatorFields');
+
+    if (roleSelect && educatorFields) {
+        if (roleSelect.value === 'educator') {
+            educatorFields.classList.remove('hidden');
+        } else {
+            educatorFields.classList.add('hidden');
+        }
+    }
+}
+
+// View User Modal Functions
+function viewUser(userId) {
+    fetch(`/admin/user/${userId}/view`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                showNotification('Error: ' + data.error, 'error');
+                return;
+            }
+
+            let content = `
+                <div class="space-y-4">
+                    <div class="flex items-center space-x-4">
+                        <img class="h-16 w-16 rounded-full" src="https://ui-avatars.com/api/?name=${data.name}&background=3B82F6&color=fff" alt="">
+                        <div>
+                            <h4 class="text-lg font-medium text-gray-900">${data.name}</h4>
+                            <p class="text-sm text-gray-500">${data.email}</p>
+                            <div class="flex items-center space-x-2 mt-1">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    ${data.role.replace('_', ' ').toUpperCase()}
+                                </span>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                    data.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                }">
+                                    ${data.status ? data.status.toUpperCase() : 'ACTIVE'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t pt-4">
+                        <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Joined</dt>
+                                <dd class="text-sm text-gray-900">${new Date(data.created_at).toLocaleDateString()}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Status</dt>
+                                <dd class="text-sm text-gray-900">${data.status || 'Active'}</dd>
+                            </div>
+            `;
+
+            if (data.stats) {
+                if (data.role === 'student') {
+                    content += `
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Enrollments</dt>
+                                <dd class="text-sm text-gray-900">${data.stats.total_enrollments}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Completed</dt>
+                                <dd class="text-sm text-gray-900">${data.stats.completed_courses}</dd>
+                            </div>
+                    `;
+                } else if (data.role === 'educator') {
+                    content += `
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Courses</dt>
+                                <dd class="text-sm text-gray-900">${data.stats.total_courses}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Students</dt>
+                                <dd class="text-sm text-gray-900">${data.stats.total_students}</dd>
+                            </div>
+                    `;
+                }
+            }
+
+            content += `
+                        </dl>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('viewUserContent').innerHTML = content;
+            document.getElementById('viewUserModal').classList.remove('hidden');
+        })
+        .catch(error => {
+            showNotification('Error loading user details: ' + error, 'error');
+        });
+}
+
+function hideViewUserModal() {
+    document.getElementById('viewUserModal').classList.add('hidden');
+}
+
+// Edit User Modal Functions
+function editUser(userId) {
+    fetch(`/admin/user/${userId}/data`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                showNotification('Error: ' + data.error, 'error');
+                return;
+            }
+
+            // Populate form
+            document.getElementById('editUserName').value = data.name || '';
+            document.getElementById('editUserEmail').value = data.email || '';
+            document.getElementById('editUserDepartment').value = data.department || '';
+            document.getElementById('editUserExperience').value = data.experience || '';
+
+            // Set form action
+            document.getElementById('editUserForm').action = `/admin/user/${userId}/edit`;
+
+            // Show educator fields if needed
+            if (data.role === 'educator') {
+                document.getElementById('editEducatorFields').classList.remove('hidden');
+            } else {
+                document.getElementById('editEducatorFields').classList.add('hidden');
+            }
+
+            document.getElementById('editUserModal').classList.remove('hidden');
+        })
+        .catch(error => {
+            showNotification('Error loading user data: ' + error, 'error');
+        });
+}
+
+function hideEditUserModal() {
+    document.getElementById('editUserModal').classList.add('hidden');
+}
+
+// Delete User Modal Functions
+function deleteUser(userId, userName) {
+    document.getElementById('deleteUserMessage').textContent =
+        `Are you sure you want to delete "${userName}"? This action cannot be undone and will remove all associated data.`;
+    document.getElementById('deleteUserForm').action = `/admin/user/${userId}/delete`;
+    document.getElementById('deleteUserModal').classList.remove('hidden');
+}
+
+function hideDeleteUserModal() {
+    document.getElementById('deleteUserModal').classList.add('hidden');
+}
+
+// Role Change Modal Functions (existing functionality)
+function showRoleChangeModal(userId, userName, currentRole, newRole) {
+    const modal = document.getElementById('roleChangeModal');
+    const form = document.getElementById('roleChangeForm');
+    const message = document.getElementById('roleChangeMessage');
+    const newRoleInput = document.getElementById('newRoleInput');
+    const confirmButton = document.getElementById('confirmRoleChangeButton');
+
+    form.action = `/admin/user/${userId}/change-role`;
+    newRoleInput.value = newRole;
+
+    const roleDisplayNames = {
+        'educator': 'Educator',
+        'admin': 'Administrator',
+        'content_manager': 'Content Manager'
+    };
+
+    const currentRoleDisplay = roleDisplayNames[currentRole];
+    const newRoleDisplay = roleDisplayNames[newRole];
+
+    let actionType = '';
+    let buttonClass = '';
+    let buttonText = '';
+
+    if (newRole === 'admin') {
+        actionType = 'upgrade';
+        buttonClass = 'flex-1 px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-red-700';
+        buttonText = `Upgrade to ${newRoleDisplay}`;
+    } else if (currentRole === 'admin' || (currentRole === 'content_manager' && newRole === 'educator')) {
+        actionType = 'downgrade';
+        buttonClass = 'flex-1 px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-blue-700';
+        buttonText = `Downgrade to ${newRoleDisplay}`;
+    } else {
+        actionType = 'reassign';
+        buttonClass = 'flex-1 px-4 py-2 bg-purple-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-purple-700';
+        buttonText = `Assign as ${newRoleDisplay}`;
+    }
+
+    message.textContent = `Are you sure you want to ${actionType} ${userName} from ${currentRoleDisplay} to ${newRoleDisplay}?`;
+    confirmButton.textContent = buttonText;
+    confirmButton.className = buttonClass;
+
+    modal.classList.remove('hidden');
+}
+
+function hideRoleChangeModal() {
+    document.getElementById('roleChangeModal').classList.add('hidden');
+}
+
+// Close modals when clicking outside
+document.addEventListener('click', function(e) {
+    const modals = ['addUserModal', 'viewUserModal', 'editUserModal', 'deleteUserModal', 'roleChangeModal'];
+    modals.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (e.target === modal) {
+            modal.classList.add('hidden');
+        }
+    });
+});
+</script>
+{% endblock %}

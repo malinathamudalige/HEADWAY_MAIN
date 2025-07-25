@@ -1,0 +1,183 @@
+<!-- templates/student/dashboard.html -->
+{% extends "base.html" %}
+
+{% block title %}Student Dashboard - Headway E-Learning{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Welcome back, {{ user.name }}!</h1>
+        <p class="mt-2 text-gray-600">Continue your learning journey with Headway E-Learning</p>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-book text-2xl text-blue-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Enrolled Courses</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ total_courses }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-trophy text-2xl text-yellow-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Points Earned</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ user.points }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-medal text-2xl text-purple-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Badges Earned</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ user.badges|length }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-chart-line text-2xl text-green-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Avg Progress</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ "%.1f"|format(avg_progress) }}%</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Current Courses -->
+        <div class="lg:col-span-2">
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-lg font-medium text-gray-900">My Courses</h2>
+                </div>
+                <div class="p-6">
+                    {% if enrolled_courses %}
+                        <div class="space-y-4">
+                            {% for course in enrolled_courses %}
+                            <div class="border border-gray-200 rounded-lg p-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <h3 class="text-lg font-medium text-gray-900">{{ course.title }}</h3>
+                                        <p class="text-sm text-gray-600">{{ course.description[:100] }}...</p>
+                                        <div class="mt-2">
+                                            <div class="flex items-center justify-between text-sm text-gray-500">
+                                                <span>Progress</span>
+                                                <span>{{ course.progress }}%</span>
+                                            </div>
+                                            <div class="mt-1 w-full bg-gray-200 rounded-full h-2">
+                                                <div class="bg-primary h-2 rounded-full" style="width: {{ course.progress }}%"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="ml-4">
+                                        <a href="{{ url_for('student_course_detail', course_id=course._id) }}" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-primary hover:bg-blue-700">
+                                            Continue
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-8">
+                            <i class="fas fa-book-open text-4xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-500">You haven't enrolled in any courses yet.</p>
+                            <a href="{{ url_for('student_courses') }}" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700">
+                                Browse Courses
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Badges -->
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-lg font-medium text-gray-900">My Badges</h2>
+                </div>
+                <div class="p-6">
+                    {% if user.badges %}
+                        <div class="grid grid-cols-3 gap-3">
+                            {% for badge_key in user.badges %}
+                            {% set badge = badges[badge_key.lower().replace(' ', '_')] %}
+                            <div class="text-center">
+                                <div class="w-12 h-12 {{ badge.color }} rounded-full flex items-center justify-center mx-auto mb-2">
+                                    <span class="text-xl">{{ badge.icon }}</span>
+                                </div>
+                                <p class="text-xs text-gray-600">{{ badge.name }}</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-gray-500 text-center">No badges earned yet. Keep learning!</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-lg font-medium text-gray-900">Recent Activity</h2>
+                </div>
+                <div class="p-6">
+                    <div class="space-y-3">
+                        {% for activity in recent_activity %}
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-check text-green-600 text-sm"></i>
+                                </div>
+                            </div>
+                            <div class="ml-3 flex-1">
+                                <p class="text-sm text-gray-900">{{ activity.action }}</p>
+                                <p class="text-xs text-gray-500">{{ activity.course }}</p>
+                                <p class="text-xs text-gray-400">{{ activity.time }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

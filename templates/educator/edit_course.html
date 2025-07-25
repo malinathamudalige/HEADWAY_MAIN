@@ -1,0 +1,381 @@
+<!-- templates/educator/edit_course.html -->
+{% extends "base.html" %}
+
+{% block title %}Edit {{ course.title }} - Headway E-Learning{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <nav class="flex mb-4" aria-label="Breadcrumb">
+            <ol class="flex items-center space-x-4">
+                <li>
+                    <a href="{{ url_for('educator_dashboard') }}" class="text-gray-400 hover:text-gray-500">
+                        <i class="fas fa-home"></i>
+                    </a>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                        <a href="{{ url_for('educator_courses') }}" class="text-gray-400 hover:text-gray-500">My Courses</a>
+                    </div>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                        <a href="{{ url_for('educator_course_detail', course_id=course._id) }}" class="text-gray-400 hover:text-gray-500">{{ course.title }}</a>
+                    </div>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                        <span class="text-gray-500">Edit</span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+        <h1 class="text-3xl font-bold text-gray-900">Edit Course</h1>
+        <p class="mt-2 text-gray-600">Update your course information and settings</p>
+    </div>
+
+    <!-- Course Edit Form -->
+    <form method="POST" action="{{ url_for('educator_edit_course_post', course_id=course._id) }}" class="space-y-8" data-validate>
+        <!-- Basic Information -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">Basic Information</h2>
+            </div>
+            <div class="p-6 space-y-6">
+                <div>
+                    <label for="title" class="block text-sm font-medium text-gray-700">Course Title *</label>
+                    <input type="text" name="title" id="title" required value="{{ course.title }}"
+                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+                           placeholder="Enter course title">
+                    <p class="mt-1 text-sm text-gray-500">Choose a clear, descriptive title for your course</p>
+                </div>
+
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700">Description *</label>
+                    <textarea name="description" id="description" rows="4" required
+                              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+                              placeholder="Describe what students will learn in this course">{{ course.description }}</textarea>
+                    <p class="mt-1 text-sm text-gray-500">Provide a comprehensive overview of the course content</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label for="level" class="block text-sm font-medium text-gray-700">Level *</label>
+                        <select name="level" id="level" required
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                            <option value="">Select Level</option>
+                            <option value="Beginner" {{ 'selected' if course.level == 'Beginner' }}>Beginner</option>
+                            <option value="Intermediate" {{ 'selected' if course.level == 'Intermediate' }}>Intermediate</option>
+                            <option value="Advanced" {{ 'selected' if course.level == 'Advanced' }}>Advanced</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="duration" class="block text-sm font-medium text-gray-700">Duration</label>
+                        <input type="text" name="duration" id="duration" value="{{ course.duration or '' }}"
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+                               placeholder="e.g., 8 weeks">
+                    </div>
+
+                    <div>
+                        <label for="category" class="block text-sm font-medium text-gray-700">Category</label>
+                        <select name="category" id="category"
+                                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                            <option value="Grammar" {{ 'selected' if course.category == 'Grammar' }}>Grammar</option>
+                            <option value="Business English" {{ 'selected' if course.category == 'Business English' }}>Business English</option>
+                            <option value="Conversation" {{ 'selected' if course.category == 'Conversation' }}>Conversation</option>
+                            <option value="Writing" {{ 'selected' if course.category == 'Writing' }}>Writing</option>
+                            <option value="Reading" {{ 'selected' if course.category == 'Reading' }}>Reading</option>
+                            <option value="Listening" {{ 'selected' if course.category == 'Listening' }}>Listening</option>
+                            <option value="Pronunciation" {{ 'selected' if course.category == 'Pronunciation' }}>Pronunciation</option>
+                            <option value="Vocabulary" {{ 'selected' if course.category == 'Vocabulary' }}>Vocabulary</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="image" class="block text-sm font-medium text-gray-700">Course Image URL</label>
+                    <input type="url" name="image" id="image" value="{{ course.image or '' }}"
+                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+                           placeholder="https://example.com/course-image.jpg">
+                    <p class="mt-1 text-sm text-gray-500">Optional: Add an image URL for your course thumbnail</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Course Status -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">Course Status</h2>
+            </div>
+            <div class="p-6">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-info-circle text-blue-600 text-lg"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-blue-800">Current Status:
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2
+                                    {% if course.status == 'published' %}bg-green-100 text-green-800
+                                    {% elif course.status == 'draft' %}bg-yellow-100 text-yellow-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ course.status|title }}
+                                </span>
+                            </h3>
+                            <div class="mt-2 text-sm text-blue-700">
+                                <ul class="list-disc pl-5 space-y-1">
+                                    {% if course.status == 'draft' %}
+                                    <li>This course is currently in draft mode and not visible to students</li>
+                                    <li>Add modules and content before publishing</li>
+                                    <li>Use the "Publish" action to make it available to students</li>
+                                    {% elif course.status == 'published' %}
+                                    <li>This course is live and available for student enrollment</li>
+                                    <li>Students can currently see and enroll in this course</li>
+                                    <li>Be careful when making changes to published courses</li>
+                                    {% else %}
+                                    <li>This course is archived and not available for new enrollments</li>
+                                    <li>Existing students can still access the content</li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Course Statistics -->
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <i class="fas fa-users text-blue-600 mr-3"></i>
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Enrolled Students</p>
+                                <p class="text-lg font-semibold text-gray-900">{{ course.students_enrolled or 0 }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <i class="fas fa-star text-yellow-500 mr-3"></i>
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Average Rating</p>
+                                <p class="text-lg font-semibold text-gray-900">{{ course.rating or 0 }}/5.0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <i class="fas fa-calendar text-green-600 mr-3"></i>
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Created</p>
+                                <p class="text-lg font-semibold text-gray-900">
+                                    {{ course.created_at.strftime('%b %d, %Y') if course.created_at else 'Unknown' }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Danger Zone -->
+        {% if course.students_enrolled == 0 %}
+        <div class="bg-white shadow rounded-lg border-l-4 border-red-400">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-red-900">Danger Zone</h2>
+            </div>
+            <div class="p-6">
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-exclamation-triangle text-red-600 text-lg"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-red-800">Delete Course</h3>
+                            <div class="mt-2 text-sm text-red-700">
+                                <p>Once you delete a course, there is no going back. Please be certain.</p>
+                            </div>
+                            <div class="mt-4">
+                                <button type="button" onclick="confirmDeleteCourse()"
+                                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
+                                    <i class="fas fa-trash mr-2"></i>
+                                    Delete Course
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Action Buttons -->
+        <div class="flex justify-between pt-6">
+            <a href="{{ url_for('educator_course_detail', course_id=course._id) }}"
+               class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Cancel
+            </a>
+            <div class="flex space-x-3">
+                {% if course.status == 'draft' %}
+                <button type="button" onclick="publishCourse()"
+                        class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+                    <i class="fas fa-globe mr-2"></i>
+                    Publish Course
+                </button>
+                {% endif %}
+                <button type="submit"
+                        class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary hover:bg-blue-700">
+                    <i class="fas fa-save mr-2"></i>
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+// Form validation
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form[data-validate]');
+    const titleInput = document.getElementById('title');
+    const descriptionInput = document.getElementById('description');
+    const levelSelect = document.getElementById('level');
+
+    // Real-time validation
+    titleInput.addEventListener('blur', function() {
+        validateTitle();
+    });
+
+    descriptionInput.addEventListener('blur', function() {
+        validateDescription();
+    });
+
+    levelSelect.addEventListener('change', function() {
+        validateLevel();
+    });
+
+    form.addEventListener('submit', function(e) {
+        if (!validateForm()) {
+            e.preventDefault();
+        }
+    });
+
+    function validateTitle() {
+        const value = titleInput.value.trim();
+        if (!value) {
+            showFieldError(titleInput, 'Course title is required');
+            return false;
+        } else if (value.length < 5) {
+            showFieldError(titleInput, 'Course title must be at least 5 characters');
+            return false;
+        } else {
+            clearFieldError(titleInput);
+            return true;
+        }
+    }
+
+    function validateDescription() {
+        const value = descriptionInput.value.trim();
+        if (!value) {
+            showFieldError(descriptionInput, 'Course description is required');
+            return false;
+        } else if (value.length < 20) {
+            showFieldError(descriptionInput, 'Description must be at least 20 characters');
+            return false;
+        } else {
+            clearFieldError(descriptionInput);
+            return true;
+        }
+    }
+
+    function validateLevel() {
+        const value = levelSelect.value;
+        if (!value) {
+            showFieldError(levelSelect, 'Please select a course level');
+            return false;
+        } else {
+            clearFieldError(levelSelect);
+            return true;
+        }
+    }
+
+    function validateForm() {
+        const titleValid = validateTitle();
+        const descriptionValid = validateDescription();
+        const levelValid = validateLevel();
+
+        return titleValid && descriptionValid && levelValid;
+    }
+
+    function showFieldError(field, message) {
+        clearFieldError(field);
+        field.classList.add('border-red-500');
+
+        const errorDiv = document.createElement('p');
+        errorDiv.className = 'mt-1 text-sm text-red-600 field-error';
+        errorDiv.textContent = message;
+        field.parentNode.appendChild(errorDiv);
+    }
+
+    function clearFieldError(field) {
+        field.classList.remove('border-red-500');
+        const existingError = field.parentNode.querySelector('.field-error');
+        if (existingError) {
+            existingError.remove();
+        }
+    }
+});
+
+// Publish course function
+function publishCourse() {
+    if (confirm('Are you sure you want to publish this course? It will become visible to students.')) {
+        fetch(`/educator/course/{{ course._id }}/publish`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = "{{ url_for('educator_course_detail', course_id=course._id) }}";
+            } else {
+                alert('Error publishing course: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error publishing course: ' + error);
+        });
+    }
+}
+
+// Delete course function
+function confirmDeleteCourse() {
+    if (confirm('Are you sure you want to delete "{{ course.title }}"? This action cannot be undone.')) {
+        fetch(`/educator/course/{{ course._id }}/delete`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = "{{ url_for('educator_courses') }}";
+            } else {
+                alert('Error deleting course: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error deleting course: ' + error);
+        });
+    }
+}
+</script>
+
+{% endblock %}

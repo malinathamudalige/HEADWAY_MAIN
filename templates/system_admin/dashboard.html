@@ -1,0 +1,173 @@
+<!-- templates/system_admin/dashboard.html -->
+{% extends "base.html" %}
+
+{% block title %}System Admin Dashboard - Headway E-Learning{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">System Administration</h1>
+        <p class="mt-2 text-gray-600">Monitor system performance and manage technical aspects</p>
+    </div>
+
+    <!-- System Metrics -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-server text-2xl text-green-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Server Uptime</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ metrics.server_uptime }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-database text-2xl text-blue-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Database Size</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ metrics.database_size }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-users text-2xl text-purple-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Active Sessions</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ metrics.active_sessions }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-tachometer-alt text-2xl text-yellow-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Server Load</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ metrics.server_load }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-memory text-2xl text-red-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Memory Usage</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ metrics.memory_usage }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-hdd text-2xl text-indigo-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Disk Usage</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ metrics.disk_usage }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Actions -->
+    <div class="mb-8">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">System Actions</h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <button class="p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <div class="flex items-center">
+                    <i class="fas fa-sync text-blue-600 text-lg mr-3"></i>
+                    <span class="text-sm font-medium text-gray-900">Restart Services</span>
+                </div>
+            </button>
+            <button class="p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <div class="flex items-center">
+                    <i class="fas fa-download text-green-600 text-lg mr-3"></i>
+                    <span class="text-sm font-medium text-gray-900">Backup Data</span>
+                </div>
+            </button>
+            <a href="{{ url_for('system_admin_logs') }}" class="p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <div class="flex items-center">
+                    <i class="fas fa-file-alt text-purple-600 text-lg mr-3"></i>
+                    <span class="text-sm font-medium text-gray-900">View Logs</span>
+                </div>
+            </a>
+            <button class="p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <div class="flex items-center">
+                    <i class="fas fa-shield-alt text-red-600 text-lg mr-3"></i>
+                    <span class="text-sm font-medium text-gray-900">Security Scan</span>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <!-- System Logs -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">Recent System Logs</h2>
+        </div>
+        <div class="p-6">
+            <div class="space-y-3">
+                {% for log in logs %}
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                {% if log.level == 'ERROR' %}bg-red-100 text-red-800
+                                {% elif log.level == 'WARNING' %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-green-100 text-green-800{% endif %}">
+                                {{ log.level }}
+                            </span>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-gray-900">{{ log.message }}</p>
+                            <p class="text-xs text-gray-500">{{ log.time }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

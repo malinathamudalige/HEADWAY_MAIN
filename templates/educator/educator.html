@@ -1,0 +1,597 @@
+<!-- templates/educator/leaderboard.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ course.title }} - Leaderboard{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-8" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-4">
+            <li>
+                <a href="{{ url_for('educator_dashboard') }}" class="text-gray-400 hover:text-gray-500">
+                    <i class="fas fa-home"></i>
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                    <a href="{{ url_for('educator_course_detail', course_id=course._id) }}" class="text-gray-400 hover:text-gray-500">{{ course.title }}</a>
+                </div>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                    <span class="text-gray-500">Leaderboard</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8 flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Course Leaderboard</h1>
+            <p class="mt-2 text-gray-600">{{ course.title }} - Student Performance Rankings</p>
+        </div>
+        <div class="flex space-x-3">
+            <select class="border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm">
+                <option>All Time</option>
+                <option>This Month</option>
+                <option>This Week</option>
+            </select>
+            <button class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-download mr-2"></i>
+                Export Results
+            </button>
+        </div>
+    </div>
+
+    <!-- Leaderboard Statistics -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-users text-2xl text-blue-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Active Students</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ leaderboard|length }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-chart-line text-2xl text-green-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Average Score</dt>
+                            <dd class="text-lg font-medium text-gray-900">
+                                {% if leaderboard %}
+                                    {{ "%.1f"|format((leaderboard|sum(attribute='average_score')/leaderboard|length)) }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-trophy text-2xl text-yellow-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Highest Score</dt>
+                            <dd class="text-lg font-medium text-gray-900">
+                                {% if leaderboard %}
+                                    {{ leaderboard|max(attribute='best_score') }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-clipboard-check text-2xl text-purple-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Quizzes</dt>
+                            <dd class="text-lg font-medium text-gray-900">
+                                {{ leaderboard|sum(attribute='quiz_count') or 0 }}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top 3 Students -->
+    {% if leaderboard|length >= 3 %}
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-6">Top Performers</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {% for student in leaderboard[:3] %}
+            <div class="bg-white overflow-hidden shadow-lg rounded-lg {% if loop.index == 1 %}ring-2 ring-yellow-400{% endif %}">
+                <div class="relative">
+                    <div class="h-32 bg-gradient-to-r {% if loop.index == 1 %}from-yellow-400 to-yellow-500{% elif loop.index == 2 %}from-gray-400 to-gray-500{% else %}from-orange-400 to-orange-500{% endif %}"></div>
+                    {% if loop.index == 1 %}
+                    <div class="absolute top-4 right-4">
+                        <i class="fas fa-crown text-white text-2xl"></i>
+                    </div>
+                    {% endif %}
+                    <div class="absolute -bottom-6 left-1/2 transform -translate-x-1/2">
+                        <img class="h-12 w-12 rounded-full border-4 border-white"
+                             src="https://ui-avatars.com/api/?name={{ student.user.name }}&background=3B82F6&color=fff"
+                             alt="{{ student.user.name }}">
+                    </div>
+                </div>
+                <div class="pt-8 pb-6 px-6 text-center">
+                    <div class="text-2xl font-bold text-{% if loop.index == 1 %}yellow{% elif loop.index == 2 %}gray{% else %}orange{% endif %}-600 mb-1">
+                        #{{ student.rank }}
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-1">{{ student.user.name }}</h3>
+                    <p class="text-sm text-gray-500 mb-4">{{ student.user.level or 'Student' }}</p>
+
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <div class="text-lg font-semibold text-green-600">{{ student.average_score }}%</div>
+                            <div class="text-gray-500">Avg Score</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-semibold text-blue-600">{{ student.quiz_count }}</div>
+                            <div class="text-gray-500">Quizzes</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Full Leaderboard -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Complete Rankings</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Average Score</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Best Score</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quizzes Taken</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Activity</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for student in leaderboard %}
+                    <tr class="hover:bg-gray-50 {% if loop.index <= 3 %}bg-yellow-50{% endif %}">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                {% if student.rank == 1 %}
+                                <i class="fas fa-medal text-yellow-500 text-lg mr-2"></i>
+                                {% elif student.rank == 2 %}
+                                <i class="fas fa-medal text-gray-400 text-lg mr-2"></i>
+                                {% elif student.rank == 3 %}
+                                <i class="fas fa-medal text-orange-500 text-lg mr-2"></i>
+                                {% endif %}
+                                <span class="text-lg font-medium text-gray-900">#{{ student.rank }}</span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <img class="h-10 w-10 rounded-full"
+                                     src="https://ui-avatars.com/api/?name={{ student.user.name }}&background=3B82F6&color=fff"
+                                     alt="{{ student.user.name }}">
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">{{ student.user.name }}</div>
+                                    <div class="text-sm text-gray-500">{{ student.user.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <span class="text-sm font-medium text-gray-900">{{ student.average_score }}%</span>
+                                <div class="ml-3 w-20 bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-500 h-2 rounded-full" style="width: {{ student.average_score }}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if student.best_score >= 90 %}bg-green-100 text-green-800
+                                {% elif student.best_score >= 70 %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ student.best_score }}%
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <div class="flex items-center">
+                                <i class="fas fa-clipboard-list text-gray-400 mr-2"></i>
+                                {{ student.quiz_count }}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ student.last_quiz_date.strftime('%b %d, %Y') if student.last_quiz_date.strftime else student.last_quiz_date }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div class="flex space-x-2">
+                                <button class="text-blue-600 hover:text-blue-900" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="text-green-600 hover:text-green-900" title="Send Message">
+                                    <i class="fas fa-envelope"></i>
+                                </button>
+                                <button class="text-purple-600 hover:text-purple-900" title="View Progress">
+                                    <i class="fas fa-chart-line"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if not leaderboard %}
+        <div class="px-6 py-12 text-center">
+            <i class="fas fa-trophy text-4xl text-gray-400 mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">No Quiz Results Yet</h3>
+            <p class="text-gray-500">Students haven't taken any quizzes in this course yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+<!-- templates/educator/quiz_results.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ quiz.title }} - Results Overview{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-8" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-4">
+            <li>
+                <a href="{{ url_for('educator_dashboard') }}" class="text-gray-400 hover:text-gray-500">
+                    <i class="fas fa-home"></i>
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                    <a href="{{ url_for('educator_course_detail', course_id=course._id) }}" class="text-gray-400 hover:text-gray-500">{{ course.title }}</a>
+                </div>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                    <span class="text-gray-500">Quiz Results</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">{{ quiz.title }}</h1>
+                <p class="mt-2 text-gray-600">Quiz Results Overview</p>
+            </div>
+            <div class="flex space-x-3">
+                <button class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    <i class="fas fa-download mr-2"></i>
+                    Export Results
+                </button>
+                <button class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700">
+                    <i class="fas fa-chart-bar mr-2"></i>
+                    View Analytics
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz Statistics -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-users text-2xl text-blue-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Attempts</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ results|length }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-chart-line text-2xl text-green-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Average Score</dt>
+                            <dd class="text-lg font-medium text-gray-900">
+                                {% if results %}
+                                    {{ "%.1f"|format((results|sum(attribute='score_percentage')/results|length)) }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-trophy text-2xl text-yellow-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Highest Score</dt>
+                            <dd class="text-lg font-medium text-gray-900">
+                                {% if results %}
+                                    {{ results|max(attribute='score_percentage') }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-check-circle text-2xl text-purple-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Pass Rate</dt>
+                            <dd class="text-lg font-medium text-gray-900">
+                                {% if results %}
+                                    {% set passing_results = results|selectattr('score_percentage', '>=', (quiz.passing_score or 70))|list %}
+                                    {{ "%.1f"|format((passing_results|length / results|length * 100)) }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grade Distribution Chart -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Grade Distribution</h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    {% set grade_counts = {} %}
+                    {% for result in results %}
+                        {% set _ = grade_counts.update({result.grade: grade_counts.get(result.grade, 0) + 1}) %}
+                    {% endfor %}
+
+                    {% for grade in ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'F'] %}
+                    {% set count = grade_counts.get(grade, 0) %}
+                    {% set percentage = (count / results|length * 100) if results else 0 %}
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium
+                                {% if grade in ['A+', 'A'] %}bg-green-100 text-green-800
+                                {% elif grade in ['A-', 'B+', 'B'] %}bg-blue-100 text-blue-800
+                                {% elif grade in ['B-', 'C+', 'C'] %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ grade }}
+                            </span>
+                            <span class="ml-3 text-sm text-gray-700">{{ count }} student{{ 's' if count != 1 else '' }}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-24 bg-gray-200 rounded-full h-2 mr-3">
+                                <div class="h-2 rounded-full {% if grade in ['A+', 'A'] %}bg-green-500{% elif grade in ['A-', 'B+', 'B'] %}bg-blue-500{% elif grade in ['B-', 'C+', 'C'] %}bg-yellow-500{% else %}bg-red-500{% endif %}"
+                                     style="width: {{ percentage }}%"></div>
+                            </div>
+                            <span class="text-sm text-gray-600">{{ "%.1f"|format(percentage) }}%</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Question Analysis -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Question Analysis</h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    {% for question in quiz.questions %}
+                    {% set correct_count = 0 %}
+                    {% for result in results %}
+                        {% for q_result in result.question_results %}
+                            {% if q_result.question_index == loop.index0 and q_result.is_correct %}
+                                {% set correct_count = correct_count + 1 %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                    {% set success_rate = (correct_count / results|length * 100) if results else 0 %}
+
+                    <div class="border-l-4 {% if success_rate >= 80 %}border-green-500{% elif success_rate >= 60 %}border-yellow-500{% else %}border-red-500{% endif %} pl-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-sm font-medium text-gray-900">Question {{ loop.index }}</h4>
+                            <span class="text-sm {% if success_rate >= 80 %}text-green-600{% elif success_rate >= 60 %}text-yellow-600{% else %}text-red-600{% endif %} font-medium">
+                                {{ "%.1f"|format(success_rate) }}% correct
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-2">{{ question.question[:80] }}{% if question.question|length > 80 %}...{% endif %}</p>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="h-2 rounded-full {% if success_rate >= 80 %}bg-green-500{% elif success_rate >= 60 %}bg-yellow-500{% else %}bg-red-500{% endif %}"
+                                 style="width: {{ success_rate }}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Individual Results Table -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Individual Results</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Correct Answers</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time Taken</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completed At</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for result in results %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <img class="h-10 w-10 rounded-full"
+                                     src="https://ui-avatars.com/api/?name={{ result.student.name }}&background=3B82F6&color=fff"
+                                     alt="{{ result.student.name }}">
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">{{ result.student.name }}</div>
+                                    <div class="text-sm text-gray-500">{{ result.student.email }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <span class="text-sm font-medium text-gray-900">{{ result.score_percentage }}%</span>
+                                <div class="ml-3 w-16 bg-gray-200 rounded-full h-2">
+                                    <div class="{% if result.score_percentage >= 80 %}bg-green-500{% elif result.score_percentage >= 60 %}bg-yellow-500{% else %}bg-red-500{% endif %} h-2 rounded-full"
+                                         style="width: {{ result.score_percentage }}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if result.grade in ['A+', 'A'] %}bg-green-100 text-green-800
+                                {% elif result.grade in ['A-', 'B+', 'B'] %}bg-blue-100 text-blue-800
+                                {% elif result.grade in ['B-', 'C+', 'C'] %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ result.grade }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ result.score }}/{{ result.total_questions }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {% set minutes = (result.time_taken // 60) %}
+                            {% set seconds = (result.time_taken % 60) %}
+                            {{ minutes }}:{{ "%02d"|format(seconds) }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ result.completed_at.strftime('%b %d, %Y %I:%M %p') if result.completed_at.strftime else result.completed_at }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div class="flex space-x-2">
+                                <button class="text-blue-600 hover:text-blue-900" title="View Detailed Results">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="text-green-600 hover:text-green-900" title="Send Feedback">
+                                    <i class="fas fa-comment"></i>
+                                </button>
+                                <button class="text-purple-600 hover:text-purple-900" title="Download Report">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if not results %}
+        <div class="px-6 py-12 text-center">
+            <i class="fas fa-clipboard-list text-4xl text-gray-400 mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">No Results Yet</h3>
+            <p class="text-gray-500">No students have taken this quiz yet.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="mt-8 flex items-center justify-between">
+        <a href="{{ url_for('educator_course_detail', course_id=course._id) }}"
+           class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            <i class="fas fa-arrow-left mr-2"></i>
+            Back to Course
+        </a>
+
+        <div class="flex space-x-4">
+            <a href="{{ url_for('course_leaderboard', course_id=course._id) }}"
+               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700">
+                <i class="fas fa-trophy mr-2"></i>
+                View Leaderboard
+            </a>
+            <button class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-envelope mr-2"></i>
+                Email Results
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

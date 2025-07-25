@@ -1,0 +1,405 @@
+<!-- templates/educator/course_analytics.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ course.title }} - Analytics{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-8" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-4">
+            <li>
+                <a href="{{ url_for('educator_dashboard') }}" class="text-gray-400 hover:text-gray-500">
+                    <i class="fas fa-home"></i>
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                    <a href="{{ url_for('educator_courses') }}" class="text-gray-400 hover:text-gray-500">My Courses</a>
+                </div>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                    <a href="{{ url_for('educator_course_detail', course_id=course._id) }}" class="text-gray-400 hover:text-gray-500">{{ course.title }}</a>
+                </div>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                    <span class="text-gray-500">Analytics</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8 flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Course Analytics</h1>
+            <p class="mt-2 text-gray-600">{{ course.title }} - Performance insights and student progress</p>
+        </div>
+        <div class="flex space-x-3">
+            <select class="border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm">
+                <option>Last 30 Days</option>
+                <option>Last 3 Months</option>
+                <option>Last 6 Months</option>
+                <option>All Time</option>
+            </select>
+            <button onclick="exportAnalytics()" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-download mr-2"></i>
+                Export Report
+            </button>
+            <a href="{{ url_for('educator_course_detail', course_id=course._id) }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Back to Course
+            </a>
+        </div>
+    </div>
+
+    <!-- Key Performance Indicators -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-gradient-to-r from-blue-500 to-blue-600 overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-users text-2xl text-white"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-blue-100 truncate">Total Students</dt>
+                            <dd class="text-lg font-medium text-white">{{ analytics.total_students or student_progress|length }}</dd>
+                            <dd class="text-sm text-blue-100">+{{ ((student_progress|length * 0.12)|round|int) }} this month</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-green-500 to-green-600 overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-chart-line text-2xl text-white"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-green-100 truncate">Completion Rate</dt>
+                            <dd class="text-lg font-medium text-white">
+                                {% set completed = student_progress|selectattr('progress', 'equalto', 100)|list|length %}
+                                {% if student_progress|length > 0 %}
+                                    {{ "%.1f"|format((completed / student_progress|length) * 100) }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </dd>
+                            <dd class="text-sm text-green-100">{{ completed }} students completed</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-purple-500 to-purple-600 overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-star text-2xl text-white"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-purple-100 truncate">Average Progress</dt>
+                            <dd class="text-lg font-medium text-white">
+                                {% if student_progress %}
+                                    {{ "%.1f"|format(student_progress|sum(attribute='progress') / student_progress|length) }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </dd>
+                            <dd class="text-sm text-purple-100">Across all students</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-yellow-500 to-yellow-600 overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-clock text-2xl text-white"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-yellow-100 truncate">Engagement Rate</dt>
+                            <dd class="text-lg font-medium text-white">{{ analytics.engagement_rate or 85 }}%</dd>
+                            <dd class="text-sm text-yellow-100">Active participation</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Progress Distribution Chart -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Progress Distribution</h3>
+            </div>
+            <div class="p-6">
+                <canvas id="progressChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- Enrollment Trend Chart -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Enrollment Trend</h3>
+            </div>
+            <div class="p-6">
+                <canvas id="enrollmentChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Progress Table -->
+    <div class="bg-white shadow rounded-lg mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Student Progress Details</h3>
+        </div>
+        <div class="overflow-hidden">
+            {% if student_progress %}
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Activity</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for student in student_progress %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
+                                        <span class="text-sm font-medium text-gray-700">{{ student.name[0] }}</span>
+                                    </div>
+                                    <div class="ml-4">
+                                        <div class="text-sm font-medium text-gray-900">{{ student.name }}</div>
+                                        <div class="text-sm text-gray-500">{{ student.email }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="w-16 mr-3">
+                                        <div class="text-sm text-gray-900">{{ student.progress }}%</div>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2 max-w-xs">
+                                        <div class="h-2 rounded-full
+                                            {% if student.progress >= 80 %}bg-green-500
+                                            {% elif student.progress >= 60 %}bg-yellow-500
+                                            {% elif student.progress >= 40 %}bg-orange-500
+                                            {% else %}bg-red-500{% endif %}"
+                                             style="width: {{ student.progress }}%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if student.grade %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                        {% if student.grade in ['A', 'A+', 'A-'] %}bg-green-100 text-green-800
+                                        {% elif student.grade in ['B', 'B+', 'B-'] %}bg-blue-100 text-blue-800
+                                        {% elif student.grade in ['C', 'C+', 'C-'] %}bg-yellow-100 text-yellow-800
+                                        {% else %}bg-red-100 text-red-800{% endif %}">
+                                        {{ student.grade }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-sm text-gray-500">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ student.last_activity or 'No recent activity' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if student.progress == 100 %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Completed
+                                    </span>
+                                {% elif student.progress >= 50 %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        In Progress
+                                    </span>
+                                {% elif student.progress > 0 %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                        Started
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                        Not Started
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="p-8 text-center">
+                    <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-chart-bar text-gray-400 text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">No student data available</h3>
+                    <p class="text-gray-500 mt-2">Students need to enroll in your course to see analytics.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Performance Insights -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Performance Insights</h3>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-blue-50 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-users text-blue-600 text-lg mr-3"></i>
+                        <div>
+                            <h4 class="text-sm font-medium text-blue-900">Top Performers</h4>
+                            <p class="text-xs text-blue-700 mt-1">
+                                {% set top_performers = student_progress|selectattr('progress', '>=', 90)|list %}
+                                {{ top_performers|length }} students with 90%+ progress
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-yellow-50 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-triangle text-yellow-600 text-lg mr-3"></i>
+                        <div>
+                            <h4 class="text-sm font-medium text-yellow-900">At Risk Students</h4>
+                            <p class="text-xs text-yellow-700 mt-1">
+                                {% set at_risk = student_progress|selectattr('progress', '<', 30)|list %}
+                                {{ at_risk|length }} students with less than 30% progress
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-green-50 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-trophy text-green-600 text-lg mr-3"></i>
+                        <div>
+                            <h4 class="text-sm font-medium text-green-900">Course Rating</h4>
+                            <p class="text-xs text-green-700 mt-1">
+                                {{ course.rating or 4.5 }}/5.0 average rating
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js for analytics charts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Progress Distribution Chart
+    const progressCtx = document.getElementById('progressChart').getContext('2d');
+
+    // Calculate progress distribution
+    const progressData = {{ student_progress|tojson }};
+    const progressRanges = {
+        '0-25%': 0,
+        '26-50%': 0,
+        '51-75%': 0,
+        '76-100%': 0
+    };
+
+    progressData.forEach(student => {
+        const progress = student.progress || 0;
+        if (progress <= 25) progressRanges['0-25%']++;
+        else if (progress <= 50) progressRanges['26-50%']++;
+        else if (progress <= 75) progressRanges['51-75%']++;
+        else progressRanges['76-100%']++;
+    });
+
+    new Chart(progressCtx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(progressRanges),
+            datasets: [{
+                data: Object.values(progressRanges),
+                backgroundColor: [
+                    '#EF4444', // Red for 0-25%
+                    '#F59E0B', // Yellow for 26-50%
+                    '#3B82F6', // Blue for 51-75%
+                    '#10B981'  // Green for 76-100%
+                ],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Enrollment Trend Chart (Sample data)
+    const enrollmentCtx = document.getElementById('enrollmentChart').getContext('2d');
+
+    new Chart(enrollmentCtx, {
+        type: 'line',
+        data: {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            datasets: [{
+                label: 'New Enrollments',
+                data: [12, 19, 8, 15, 22, 13],
+                borderColor: '#3B82F6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+});
+
+function exportAnalytics() {
+    // Export analytics data
+    window.open(`/educator/course/{{ course._id }}/analytics/export`, '_blank');
+}
+</script>
+
+{% endblock %}
