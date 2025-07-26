@@ -1,0 +1,516 @@
+<!-- templates/system_admin/performance.html -->
+{% extends "base.html" %}
+
+{% block title %}System Performance - Headway E-Learning{% endblock %}
+
+{% block extra_css %}
+<style>
+.chart-container {
+    position: relative;
+    height: 300px;
+    margin-bottom: 2rem;
+}
+.metric-card {
+    transition: all 0.3s ease;
+}
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.performance-good { color: #10b981; }
+.performance-warning { color: #f59e0b; }
+.performance-danger { color: #ef4444; }
+.real-time-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #10b981;
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8 flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">System Performance</h1>
+            <p class="mt-2 text-gray-600">Real-time system performance monitoring and analytics</p>
+        </div>
+        <div class="flex items-center space-x-3">
+            <span class="inline-flex items-center text-sm text-gray-600">
+                <span class="real-time-indicator mr-2"></span>
+                Live Monitoring
+            </span>
+            <button id="refreshBtn" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-sync mr-2"></i>
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Current Performance Metrics -->
+    <div class="mb-8">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Current Performance</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- CPU Usage -->
+            <div class="metric-card bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-microchip text-2xl text-blue-600"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">CPU Usage</dt>
+                                <dd class="text-lg font-medium text-gray-900" id="current-cpu">{{ metrics.cpu_usage }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                                 style="width: {{ metrics.cpu_usage }}" id="cpu-bar"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Memory Usage -->
+            <div class="metric-card bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-memory text-2xl text-green-600"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Memory Usage</dt>
+                                <dd class="text-lg font-medium text-gray-900" id="current-memory">{{ metrics.memory_usage }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-green-600 h-2 rounded-full transition-all duration-500"
+                                 style="width: {{ metrics.memory_usage }}" id="memory-bar"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Disk Usage -->
+            <div class="metric-card bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-hdd text-2xl text-purple-600"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Disk Usage</dt>
+                                <dd class="text-lg font-medium text-gray-900" id="current-disk">{{ metrics.disk_usage }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-purple-600 h-2 rounded-full transition-all duration-500"
+                                 style="width: {{ metrics.disk_usage }}" id="disk-bar"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Sessions -->
+            <div class="metric-card bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-users text-2xl text-orange-600"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Active Sessions</dt>
+                                <dd class="text-lg font-medium text-gray-900" id="current-sessions">{{ metrics.active_sessions }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="text-xs text-gray-500">
+                            <i class="fas fa-clock mr-1"></i>
+                            Real-time count
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- CPU & Memory Chart -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">CPU & Memory Usage (Last 24 Hours)</h3>
+            </div>
+            <div class="p-6">
+                <div class="chart-container">
+                    <canvas id="cpuMemoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sessions Chart -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Active Sessions (Last 24 Hours)</h3>
+            </div>
+            <div class="p-6">
+                <div class="chart-container">
+                    <canvas id="sessionsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Insights -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <!-- System Health -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">System Health</h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Overall Status</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <span class="performance-good mr-1">●</span>
+                            Healthy
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Load Average</span>
+                        <span class="text-sm font-medium text-gray-900">0.75</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Response Time</span>
+                        <span class="text-sm font-medium text-gray-900">145ms</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Error Rate</span>
+                        <span class="text-sm font-medium text-gray-900">0.02%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Process Information -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Process Info</h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Process ID</span>
+                        <span class="text-sm font-medium text-gray-900">{{ metrics.process_info.pid }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Threads</span>
+                        <span class="text-sm font-medium text-gray-900">{{ metrics.process_info.threads }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Memory %</span>
+                        <span class="text-sm font-medium text-gray-900">{{ metrics.process_info.memory_percent }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">CPU %</span>
+                        <span class="text-sm font-medium text-gray-900">{{ metrics.process_info.cpu_percent }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Network Stats -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Network Activity</h3>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Bytes Sent</span>
+                        <span class="text-sm font-medium text-gray-900">{{ metrics.network_stats.bytes_sent }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Bytes Received</span>
+                        <span class="text-sm font-medium text-gray-900">{{ metrics.network_stats.bytes_recv }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Packets Sent</span>
+                        <span class="text-sm font-medium text-gray-900">{{ metrics.network_stats.packets_sent }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Packets Received</span>
+                        <span class="text-sm font-medium text-gray-900">{{ metrics.network_stats.packets_recv }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Alerts -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Performance Alerts</h3>
+        </div>
+        <div class="p-6">
+            <div id="performanceAlerts" class="space-y-3">
+                <!-- Alerts will be populated by JavaScript -->
+                <div class="flex items-center p-3 bg-green-50 border border-green-200 rounded-md">
+                    <i class="fas fa-check-circle text-green-600 mr-3"></i>
+                    <span class="text-sm text-green-800">All systems operating normally</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let cpuMemoryChart, sessionsChart;
+let performanceData = {
+    cpu: {{ performance_history.cpu | safe }},
+    memory: {{ performance_history.memory | safe }},
+    disk: {{ performance_history.disk | safe }},
+    timestamps: {{ performance_history.timestamps | safe }}
+};
+
+// Initialize charts
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    startAutoRefresh();
+    checkPerformanceAlerts();
+});
+
+function initializeCharts() {
+    // CPU & Memory Chart
+    const cpuMemoryCtx = document.getElementById('cpuMemoryChart').getContext('2d');
+    cpuMemoryChart = new Chart(cpuMemoryCtx, {
+        type: 'line',
+        data: {
+            labels: performanceData.timestamps,
+            datasets: [{
+                label: 'CPU Usage (%)',
+                data: performanceData.cpu,
+                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Memory Usage (%)',
+                data: performanceData.memory,
+                borderColor: 'rgb(16, 185, 129)',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top'
+                }
+            }
+        }
+    });
+
+    // Sessions Chart
+    const sessionsCtx = document.getElementById('sessionsChart').getContext('2d');
+    sessionsChart = new Chart(sessionsCtx, {
+        type: 'line',
+        data: {
+            labels: performanceData.timestamps,
+            datasets: [{
+                label: 'Active Sessions',
+                data: [5, 7, 6, 8, 9, 7, 6, 10, 8, 7], // Sample data
+                borderColor: 'rgb(245, 158, 11)',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top'
+                }
+            }
+        }
+    });
+}
+
+function startAutoRefresh() {
+    // Refresh performance data every 30 seconds
+    setInterval(refreshPerformanceData, 30000);
+}
+
+function refreshPerformanceData() {
+    fetch('/system-admin/api/metrics')
+        .then(response => response.json())
+        .then(data => {
+            updateCurrentMetrics(data);
+            checkPerformanceAlerts();
+        })
+        .catch(error => {
+            console.error('Error fetching performance data:', error);
+        });
+}
+
+function updateCurrentMetrics(metrics) {
+    // Update current metric displays
+    document.getElementById('current-cpu').textContent = metrics.cpu_usage;
+    document.getElementById('current-memory').textContent = metrics.memory_usage;
+    document.getElementById('current-disk').textContent = metrics.disk_usage;
+    document.getElementById('current-sessions').textContent = metrics.active_sessions;
+
+    // Update progress bars
+    document.getElementById('cpu-bar').style.width = metrics.cpu_usage;
+    document.getElementById('memory-bar').style.width = metrics.memory_usage;
+    document.getElementById('disk-bar').style.width = metrics.disk_usage;
+
+    // Update chart data (add new point and remove oldest)
+    const now = new Date().toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    // Add new data points
+    cpuMemoryChart.data.labels.push(now);
+    cpuMemoryChart.data.datasets[0].data.push(parseFloat(metrics.cpu_usage));
+    cpuMemoryChart.data.datasets[1].data.push(parseFloat(metrics.memory_usage));
+
+    sessionsChart.data.labels.push(now);
+    sessionsChart.data.datasets[0].data.push(metrics.active_sessions);
+
+    // Remove old data points (keep last 10)
+    if (cpuMemoryChart.data.labels.length > 10) {
+        cpuMemoryChart.data.labels.shift();
+        cpuMemoryChart.data.datasets[0].data.shift();
+        cpuMemoryChart.data.datasets[1].data.shift();
+
+        sessionsChart.data.labels.shift();
+        sessionsChart.data.datasets[0].data.shift();
+    }
+
+    // Update charts
+    cpuMemoryChart.update('none');
+    sessionsChart.update('none');
+}
+
+function checkPerformanceAlerts() {
+    const alertsContainer = document.getElementById('performanceAlerts');
+    const alerts = [];
+
+    // Get current metrics
+    const cpuUsage = parseFloat(document.getElementById('current-cpu').textContent);
+    const memoryUsage = parseFloat(document.getElementById('current-memory').textContent);
+    const diskUsage = parseFloat(document.getElementById('current-disk').textContent);
+
+    // Check for alerts
+    if (cpuUsage > 80) {
+        alerts.push({
+            type: 'danger',
+            icon: 'exclamation-triangle',
+            message: `High CPU usage detected: ${cpuUsage}%`
+        });
+    }
+
+    if (memoryUsage > 85) {
+        alerts.push({
+            type: 'warning',
+            icon: 'exclamation-circle',
+            message: `High memory usage detected: ${memoryUsage}%`
+        });
+    }
+
+    if (diskUsage > 90) {
+        alerts.push({
+            type: 'danger',
+            icon: 'hdd',
+            message: `High disk usage detected: ${diskUsage}%`
+        });
+    }
+
+    // Display alerts
+    if (alerts.length === 0) {
+        alertsContainer.innerHTML = `
+            <div class="flex items-center p-3 bg-green-50 border border-green-200 rounded-md">
+                <i class="fas fa-check-circle text-green-600 mr-3"></i>
+                <span class="text-sm text-green-800">All systems operating normally</span>
+            </div>
+        `;
+    } else {
+        alertsContainer.innerHTML = alerts.map(alert => {
+            const colorClasses = alert.type === 'danger' ?
+                'bg-red-50 border-red-200 text-red-800' :
+                'bg-yellow-50 border-yellow-200 text-yellow-800';
+            const iconColor = alert.type === 'danger' ? 'text-red-600' : 'text-yellow-600';
+
+            return `
+                <div class="flex items-center p-3 ${colorClasses} border rounded-md">
+                    <i class="fas fa-${alert.icon} ${iconColor} mr-3"></i>
+                    <span class="text-sm">${alert.message}</span>
+                </div>
+            `;
+        }).join('');
+    }
+}
+
+// Manual refresh button
+document.getElementById('refreshBtn').addEventListener('click', function() {
+    refreshPerformanceData();
+    showNotification('Performance data refreshed', 'success');
+});
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 p-4 rounded-md shadow-lg z-50 ${
+        type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+        'bg-red-100 text-red-800 border border-red-200'
+    }`;
+    notification.textContent = message;
+
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

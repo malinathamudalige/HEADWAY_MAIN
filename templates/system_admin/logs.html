@@ -3,6 +3,49 @@
 
 {% block title %}System Logs - Headway E-Learning{% endblock %}
 
+{% block extra_css %}
+<style>
+.log-entry {
+    transition: background-color 0.3s ease;
+}
+.log-entry:hover {
+    background-color: #f9fafb;
+}
+.log-level-info {
+    color: #3b82f6;
+    background-color: #dbeafe;
+}
+.log-level-warning {
+    color: #f59e0b;
+    background-color: #fef3c7;
+}
+.log-level-error {
+    color: #ef4444;
+    background-color: #fee2e2;
+}
+.log-level-debug {
+    color: #8b5cf6;
+    background-color: #ede9fe;
+}
+.filter-badge {
+    display: inline-flex;
+    items-center;
+    padding: 0.25rem 0.75rem;
+    rounded: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+.auto-refresh-on {
+    animation: pulse 2s infinite;
+}
+.search-highlight {
+    background-color: #fef08a;
+    padding: 0.1rem 0.2rem;
+    border-radius: 0.25rem;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Header -->
@@ -12,17 +55,17 @@
             <p class="mt-2 text-gray-600">Monitor system activity, errors, and performance metrics</p>
         </div>
         <div class="flex space-x-3">
-            <button class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            <button id="autoRefreshBtn" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                 <i class="fas fa-sync mr-2"></i>
-                Auto-refresh: ON
+                <span id="autoRefreshText">Auto-refresh: OFF</span>
             </button>
-            <button class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            <button id="exportBtn" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                 <i class="fas fa-download mr-2"></i>
                 Export Logs
             </button>
-            <button class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700">
-                <i class="fas fa-cog mr-2"></i>
-                Log Settings
+            <button id="clearLogsBtn" class="inline-flex items-center px-4 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50">
+                <i class="fas fa-trash mr-2"></i>
+                Clear Logs
             </button>
         </div>
     </div>
@@ -33,13 +76,28 @@
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
+                        <i class="fas fa-list text-2xl text-gray-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Logs</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ log_stats.total }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
                         <i class="fas fa-info-circle text-2xl text-blue-600"></i>
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">Info Logs</dt>
-                            <dd class="text-lg font-medium text-gray-900">2,847</dd>
-                            <dd class="text-sm text-blue-600">Last 24 hours</dd>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Info</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ log_stats.info }}</dd>
                         </dl>
                     </div>
                 </div>
@@ -55,8 +113,7 @@
                     <div class="ml-5 w-0 flex-1">
                         <dl>
                             <dt class="text-sm font-medium text-gray-500 truncate">Warnings</dt>
-                            <dd class="text-lg font-medium text-gray-900">23</dd>
-                            <dd class="text-sm text-yellow-600">Needs attention</dd>
+                            <dd class="text-lg font-medium text-gray-900">{{ log_stats.warning }}</dd>
                         </dl>
                     </div>
                 </div>
@@ -67,30 +124,12 @@
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <i class="fas fa-times-circle text-2xl text-red-600"></i>
+                        <i class="fas fa-exclamation-circle text-2xl text-red-600"></i>
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
                             <dt class="text-sm font-medium text-gray-500 truncate">Errors</dt>
-                            <dd class="text-lg font-medium text-gray-900">5</dd>
-                            <dd class="text-sm text-red-600">Critical issues</dd>
-                        </dl>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white overflow-hidden shadow rounded-lg">
-            <div class="p-5">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <i class="fas fa-shield-alt text-2xl text-purple-600"></i>
-                    </div>
-                    <div class="ml-5 w-0 flex-1">
-                        <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">Security Events</dt>
-                            <dd class="text-lg font-medium text-gray-900">12</dd>
-                            <dd class="text-sm text-purple-600">Authentication logs</dd>
+                            <dd class="text-lg font-medium text-gray-900">{{ log_stats.error }}</dd>
                         </dl>
                     </div>
                 </div>
@@ -98,430 +137,421 @@
         </div>
     </div>
 
-    <!-- Log Filters and Search -->
-    <div class="bg-white p-4 rounded-lg shadow mb-6" x-data="{ showAdvancedFilters: false }">
-        <div class="flex items-center justify-between mb-4">
-            <div class="flex-1 max-w-2xl">
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <i class="fas fa-search text-gray-400"></i>
-                    </div>
-                    <input type="text" placeholder="Search logs by message, module, IP address..."
-                           class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-primary focus:border-primary">
-                </div>
-            </div>
-            <div class="ml-4 flex space-x-2">
-                <select class="border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm">
-                    <option>All Levels</option>
-                    <option>ERROR</option>
-                    <option>WARNING</option>
-                    <option>INFO</option>
-                    <option>DEBUG</option>
-                </select>
-                <select class="border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm">
-                    <option>All Modules</option>
-                    <option>AUTH</option>
-                    <option>DB</option>
-                    <option>API</option>
-                    <option>CACHE</option>
-                    <option>SYSTEM</option>
-                </select>
-                <button @click="showAdvancedFilters = !showAdvancedFilters" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                    <i class="fas fa-filter mr-2"></i>
-                    Advanced
-                </button>
-            </div>
-        </div>
-
-        <!-- Advanced Filters -->
-        <div x-show="showAdvancedFilters" x-transition class="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Time Range</label>
-                <select class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
-                    <option>Last Hour</option>
-                    <option>Last 24 Hours</option>
-                    <option>Last 7 Days</option>
-                    <option>Last 30 Days</option>
-                    <option>Custom Range</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">IP Address</label>
-                <input type="text" placeholder="e.g., 192.168.1.100" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">User ID</label>
-                <input type="text" placeholder="Enter user ID" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Session ID</label>
-                <input type="text" placeholder="Enter session ID" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
-            </div>
-            <div class="flex items-end">
-                <button class="w-full bg-primary border border-transparent rounded-md py-2 px-4 flex items-center justify-center text-sm font-medium text-white hover:bg-blue-700">
-                    Apply Filters
-                </button>
-            </div>
-        </div>
-
-        <!-- Quick Filter Buttons -->
-        <div class="mt-4 flex space-x-2">
-            <button class="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                <i class="fas fa-times-circle text-red-500 mr-1"></i>
-                Errors Only
-            </button>
-            <button class="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                <i class="fas fa-user-shield text-blue-500 mr-1"></i>
-                Auth Events
-            </button>
-            <button class="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                <i class="fas fa-database text-green-500 mr-1"></i>
-                DB Operations
-            </button>
-            <button class="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                <i class="fas fa-clock text-purple-500 mr-1"></i>
-                Last 5 Minutes
-            </button>
-        </div>
-    </div>
-
-    <!-- Real-time Log Stream -->
-    <div class="bg-white shadow rounded-lg mb-8" x-data="{ isStreaming: true, autoScroll: true }">
-        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <div class="flex items-center space-x-4">
-                <h3 class="text-lg font-medium text-gray-900">Live Log Stream</h3>
-                <div class="flex items-center">
-                    <div :class="isStreaming ? 'bg-green-400' : 'bg-red-400'" class="w-3 h-3 rounded-full mr-2"></div>
-                    <span class="text-sm text-gray-600" x-text="isStreaming ? 'Live' : 'Paused'"></span>
-                </div>
-            </div>
-            <div class="flex space-x-2">
-                <button @click="isStreaming = !isStreaming"
-                        :class="isStreaming ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'"
-                        class="text-sm font-medium">
-                    <i :class="isStreaming ? 'fas fa-pause' : 'fas fa-play'" class="mr-1"></i>
-                    <span x-text="isStreaming ? 'Pause' : 'Resume'"></span>
-                </button>
-                <button @click="autoScroll = !autoScroll"
-                        :class="autoScroll ? 'text-blue-600' : 'text-gray-400'"
-                        class="text-sm font-medium hover:text-blue-800">
-                    <i class="fas fa-arrows-alt-v mr-1"></i>
-                    Auto-scroll
-                </button>
-                <button class="text-sm font-medium text-gray-600 hover:text-gray-800">
-                    <i class="fas fa-trash mr-1"></i>
-                    Clear
-                </button>
-            </div>
-        </div>
-
-        <!-- Log Entries -->
-        <div class="max-h-96 overflow-y-auto font-mono text-sm" style="background-color: #1e1e1e; color: #d4d4d4;">
-            <div class="p-4 space-y-1">
-                {% for log in logs %}
-                <div class="flex items-start space-x-4 py-1 hover:bg-gray-800 px-2 rounded">
-                    <div class="flex-shrink-0 w-20 text-xs text-gray-400">
-                        {{ log.timestamp.split(' ')[1] if ' ' in log.timestamp else log.timestamp }}
-                    </div>
-                    <div class="flex-shrink-0 w-16">
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
-                            {% if log.level == 'ERROR' %}bg-red-900 text-red-200
-                            {% elif log.level == 'WARNING' %}bg-yellow-900 text-yellow-200
-                            {% elif log.level == 'INFO' %}bg-blue-900 text-blue-200
-                            {% else %}bg-gray-800 text-gray-300{% endif %}">
-                            {{ log.level }}
-                        </span>
-                    </div>
-                    <div class="flex-shrink-0 w-20 text-xs">
-                        <span class="text-purple-300">{{ log.module }}</span>
-                    </div>
-                    <div class="flex-1 text-gray-200">
-                        {{ log.message }}
-                    </div>
-                    <div class="flex-shrink-0 w-32 text-xs text-gray-400">
-                        {{ log.ip }}
-                    </div>
-                    <div class="flex-shrink-0">
-                        <button class="text-gray-400 hover:text-white" title="View Details">
-                            <i class="fas fa-info-circle text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-                {% endfor %}
-
-                <!-- Simulated real-time entries -->
-                <div class="flex items-start space-x-4 py-1 hover:bg-gray-800 px-2 rounded animate-pulse">
-                    <div class="flex-shrink-0 w-20 text-xs text-gray-400">15:47:23</div>
-                    <div class="flex-shrink-0 w-16">
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-900 text-blue-200">
-                            INFO
-                        </span>
-                    </div>
-                    <div class="flex-shrink-0 w-20 text-xs">
-                        <span class="text-purple-300">API</span>
-                    </div>
-                    <div class="flex-1 text-gray-200">
-                        Course enrollment API called successfully
-                    </div>
-                    <div class="flex-shrink-0 w-32 text-xs text-gray-400">192.168.1.105</div>
-                    <div class="flex-shrink-0">
-                        <button class="text-gray-400 hover:text-white" title="View Details">
-                            <i class="fas fa-info-circle text-xs"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Log Analysis and Metrics -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <!-- Error Trends -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Error Trends (Last 24 Hours)</h3>
-            </div>
-            <div class="p-6">
-                <div class="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-                    <div class="text-center">
-                        <i class="fas fa-chart-line text-4xl text-gray-400 mb-4"></i>
-                        <p class="text-gray-500">Error trend chart will be displayed here</p>
-                        <p class="text-sm text-gray-400">Chart.js or similar integration</p>
-                    </div>
-                </div>
-                <!-- Error Summary -->
-                <div class="mt-4 grid grid-cols-3 gap-4 text-center text-sm">
-                    <div>
-                        <div class="text-lg font-semibold text-red-600">5</div>
-                        <div class="text-gray-500">Critical Errors</div>
-                    </div>
-                    <div>
-                        <div class="text-lg font-semibold text-yellow-600">23</div>
-                        <div class="text-gray-500">Warnings</div>
-                    </div>
-                    <div>
-                        <div class="text-lg font-semibold text-green-600">99.8%</div>
-                        <div class="text-gray-500">Uptime</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Top Error Messages -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Most Frequent Errors</h3>
-            </div>
-            <div class="p-6">
-                <div class="space-y-4">
-                    <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                        <div class="flex items-center">
-                            <i class="fas fa-times-circle text-red-500 mr-3"></i>
-                            <div>
-                                <div class="text-sm font-medium text-gray-900">Database connection timeout</div>
-                                <div class="text-xs text-gray-500">DB module • Last occurred 2 hours ago</div>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-sm font-semibold text-red-600">3 times</div>
-                            <div class="text-xs text-gray-500">Today</div>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                        <div class="flex items-center">
-                            <i class="fas fa-exclamation-triangle text-yellow-500 mr-3"></i>
-                            <div>
-                                <div class="text-sm font-medium text-gray-900">High memory usage detected</div>
-                                <div class="text-xs text-gray-500">SYSTEM module • Last occurred 1 hour ago</div>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-sm font-semibold text-yellow-600">12 times</div>
-                            <div class="text-xs text-gray-500">Today</div>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                        <div class="flex items-center">
-                            <i class="fas fa-info-circle text-blue-500 mr-3"></i>
-                            <div>
-                                <div class="text-sm font-medium text-gray-900">Cache miss rate above threshold</div>
-                                <div class="text-xs text-gray-500">CACHE module • Last occurred 30 minutes ago</div>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-sm font-semibold text-blue-600">8 times</div>
-                            <div class="text-xs text-gray-500">Today</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Log Retention and Archival -->
-    <div class="bg-white shadow rounded-lg">
+    <!-- Filters and Search -->
+    <div class="bg-white shadow rounded-lg mb-8">
         <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">Log Management</h3>
+            <h3 class="text-lg font-medium text-gray-900">Filters & Search</h3>
         </div>
         <div class="p-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Storage Usage -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <!-- Search -->
                 <div>
-                    <h4 class="text-sm font-medium text-gray-900 mb-3">Storage Usage</h4>
-                    <div class="space-y-3">
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span>Current Logs</span>
-                                <span>2.4 GB</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-blue-500 h-2 rounded-full" style="width: 48%"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span>Archived Logs</span>
-                                <span>12.1 GB</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-green-500 h-2 rounded-full" style="width: 75%"></div>
-                            </div>
-                        </div>
-                        <div class="text-xs text-gray-500">
-                            Total available: 50 GB
-                        </div>
-                    </div>
+                    <label for="searchInput" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                    <input type="text" id="searchInput" placeholder="Search logs..."
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
 
-                <!-- Retention Policy -->
+                <!-- Level Filter -->
                 <div>
-                    <h4 class="text-sm font-medium text-gray-900 mb-3">Retention Policy</h4>
-                    <div class="space-y-2 text-sm">
-                        <div class="flex justify-between">
-                            <span>Live logs:</span>
-                            <span class="font-medium">7 days</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span>Archived logs:</span>
-                            <span class="font-medium">1 year</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span>Error logs:</span>
-                            <span class="font-medium">2 years</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span>Security logs:</span>
-                            <span class="font-medium">5 years</span>
-                        </div>
-                    </div>
+                    <label for="levelFilter" class="block text-sm font-medium text-gray-700 mb-1">Level</label>
+                    <select id="levelFilter" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="all" {% if current_filters.level == 'all' %}selected{% endif %}>All Levels</option>
+                        <option value="info" {% if current_filters.level == 'info' %}selected{% endif %}>Info</option>
+                        <option value="warning" {% if current_filters.level == 'warning' %}selected{% endif %}>Warning</option>
+                        <option value="error" {% if current_filters.level == 'error' %}selected{% endif %}>Error</option>
+                    </select>
                 </div>
 
-                <!-- Quick Actions -->
+                <!-- Module Filter -->
                 <div>
-                    <h4 class="text-sm font-medium text-gray-900 mb-3">Quick Actions</h4>
-                    <div class="space-y-2">
-                        <button class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded border border-gray-200">
-                            <i class="fas fa-archive mr-2"></i>Archive Old Logs
-                        </button>
-                        <button class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded border border-gray-200">
-                            <i class="fas fa-download mr-2"></i>Download Log Package
-                        </button>
-                        <button class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded border border-gray-200">
-                            <i class="fas fa-trash mr-2"></i>Purge Old Archives
-                        </button>
-                        <button class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded border border-gray-200">
-                            <i class="fas fa-cog mr-2"></i>Configure Retention
-                        </button>
-                    </div>
+                    <label for="moduleFilter" class="block text-sm font-medium text-gray-700 mb-1">Module</label>
+                    <select id="moduleFilter" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="all" {% if current_filters.module == 'all' %}selected{% endif %}>All Modules</option>
+                        {% for module in unique_modules %}
+                        <option value="{{ module.lower() }}" {% if current_filters.module == module.lower() %}selected{% endif %}>{{ module }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Limit -->
+                <div>
+                    <label for="limitFilter" class="block text-sm font-medium text-gray-700 mb-1">Show</label>
+                    <select id="limitFilter" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="50" {% if current_filters.limit == 50 %}selected{% endif %}>50 logs</option>
+                        <option value="100" {% if current_filters.limit == 100 %}selected{% endif %}>100 logs</option>
+                        <option value="200" {% if current_filters.limit == 200 %}selected{% endif %}>200 logs</option>
+                        <option value="500" {% if current_filters.limit == 500 %}selected{% endif %}>500 logs</option>
+                    </select>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
 
-<!-- Log Detail Modal -->
-<div x-data="{ showLogDetail: false, selectedLog: null }" x-show="showLogDetail" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
-    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div x-show="showLogDetail" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 transition-opacity">
-            <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
-        </div>
-
-        <div x-show="showLogDetail" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900">Log Entry Details</h3>
-                    <button @click="showLogDetail = false" class="text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-
-                <!-- Log Details Content -->
-                <div class="space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Timestamp</label>
-                            <div class="mt-1 text-sm text-gray-900 font-mono">2024-07-11 15:45:23.456 UTC</div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Level</label>
-                            <div class="mt-1">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                    ERROR
-                                </span>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Module</label>
-                            <div class="mt-1 text-sm text-gray-900">DATABASE</div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">IP Address</label>
-                            <div class="mt-1 text-sm text-gray-900 font-mono">192.168.1.100</div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Message</label>
-                        <div class="mt-1 p-3 bg-gray-50 rounded-md text-sm text-gray-900 font-mono">
-                            Connection timeout on query execution: SELECT * FROM users WHERE status = 'active' LIMIT 100
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Stack Trace</label>
-                        <div class="mt-1 p-3 bg-gray-900 text-green-400 rounded-md text-sm font-mono max-h-40 overflow-y-auto">
-                            <div>Traceback (most recent call last):</div>
-                            <div>&nbsp;&nbsp;File "/app/database.py", line 45, in execute_query</div>
-                            <div>&nbsp;&nbsp;&nbsp;&nbsp;result = cursor.execute(query)</div>
-                            <div>&nbsp;&nbsp;File "/usr/lib/python3.8/site-packages/pymongo/cursor.py", line 234</div>
-                            <div>&nbsp;&nbsp;&nbsp;&nbsp;raise NetworkTimeout("Query execution timed out")</div>
-                            <div>NetworkTimeout: Query execution timed out after 30 seconds</div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">User ID</label>
-                            <div class="mt-1 text-sm text-gray-900">user_12345</div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Session ID</label>
-                            <div class="mt-1 text-sm text-gray-900 font-mono">sess_abcd1234efgh5678</div>
-                        </div>
-                    </div>
-                </div>
+            <!-- Active Filters -->
+            <div id="activeFilters" class="flex flex-wrap gap-2 mb-4">
+                {% if current_filters.level != 'all' %}
+                <span class="filter-badge bg-blue-100 text-blue-800">
+                    Level: {{ current_filters.level|title }}
+                    <button onclick="removeFilter('level')" class="ml-2 text-blue-600 hover:text-blue-800">×</button>
+                </span>
+                {% endif %}
+                {% if current_filters.module != 'all' %}
+                <span class="filter-badge bg-green-100 text-green-800">
+                    Module: {{ current_filters.module|title }}
+                    <button onclick="removeFilter('module')" class="ml-2 text-green-600 hover:text-green-800">×</button>
+                </span>
+                {% endif %}
             </div>
-            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 sm:ml-3 sm:w-auto sm:text-sm">
-                    Mark as Resolved
+
+            <!-- Filter Actions -->
+            <div class="flex space-x-3">
+                <button id="applyFiltersBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                    <i class="fas fa-filter mr-2"></i>
+                    Apply Filters
                 </button>
-                <button @click="showLogDetail = false" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">
-                    Close
+                <button id="clearFiltersBtn" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    <i class="fas fa-times mr-2"></i>
+                    Clear All
                 </button>
             </div>
         </div>
     </div>
+
+    <!-- Logs Table -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="text-lg font-medium text-gray-900">System Logs</h3>
+            <div class="flex items-center space-x-2">
+                <span class="text-sm text-gray-500">Last updated: <span id="lastUpdated">Just now</span></span>
+                <button id="refreshLogsBtn" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-sync text-sm"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Level</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Module</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP</th>
+                    </tr>
+                </thead>
+                <tbody id="logsTableBody" class="bg-white divide-y divide-gray-200">
+                    {% for log in logs %}
+                    <tr class="log-entry">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ log.timestamp }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full log-level-{{ log.level.lower() }}">
+                                {{ log.level }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ log.module }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">{{ log.message }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ log.ip }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Loading indicator -->
+        <div id="loadingIndicator" class="hidden p-8 text-center">
+            <div class="inline-flex items-center">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading logs...
+            </div>
+        </div>
+
+        <!-- Empty state -->
+        <div id="emptyState" class="hidden p-8 text-center">
+            <i class="fas fa-search text-gray-400 text-4xl mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">No logs found</h3>
+            <p class="text-gray-500">Try adjusting your filters or search terms.</p>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let autoRefreshInterval = null;
+let autoRefreshEnabled = false;
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    setupEventListeners();
+    updateLastUpdated();
+});
+
+function setupEventListeners() {
+    // Auto-refresh toggle
+    document.getElementById('autoRefreshBtn').addEventListener('click', toggleAutoRefresh);
+
+    // Filter controls
+    document.getElementById('applyFiltersBtn').addEventListener('click', applyFilters);
+    document.getElementById('clearFiltersBtn').addEventListener('click', clearFilters);
+    document.getElementById('refreshLogsBtn').addEventListener('click', refreshLogs);
+
+    // Export logs
+    document.getElementById('exportBtn').addEventListener('click', exportLogs);
+
+    // Clear logs
+    document.getElementById('clearLogsBtn').addEventListener('click', confirmClearLogs);
+
+    // Search input with debounce
+    let searchTimeout;
+    document.getElementById('searchInput').addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(applyFilters, 500);
+    });
+
+    // Filter dropdowns
+    document.getElementById('levelFilter').addEventListener('change', applyFilters);
+    document.getElementById('moduleFilter').addEventListener('change', applyFilters);
+    document.getElementById('limitFilter').addEventListener('change', applyFilters);
+}
+
+function toggleAutoRefresh() {
+    autoRefreshEnabled = !autoRefreshEnabled;
+    const btn = document.getElementById('autoRefreshBtn');
+    const text = document.getElementById('autoRefreshText');
+
+    if (autoRefreshEnabled) {
+        text.textContent = 'Auto-refresh: ON';
+        btn.classList.add('auto-refresh-on');
+        autoRefreshInterval = setInterval(refreshLogs, 10000); // Refresh every 10 seconds
+    } else {
+        text.textContent = 'Auto-refresh: OFF';
+        btn.classList.remove('auto-refresh-on');
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+        }
+    }
+}
+
+function applyFilters() {
+    const search = document.getElementById('searchInput').value;
+    const level = document.getElementById('levelFilter').value;
+    const module = document.getElementById('moduleFilter').value;
+    const limit = document.getElementById('limitFilter').value;
+
+    const params = new URLSearchParams();
+    if (level !== 'all') params.append('level', level);
+    if (module !== 'all') params.append('module', module);
+    if (limit) params.append('limit', limit);
+
+    // Build URL with filters
+    const url = `/system-admin/logs${params.toString() ? '?' + params.toString() : ''}`;
+
+    // If we have a search term, we'll handle client-side filtering
+    if (search) {
+        filterLogsClientSide(search);
+    } else {
+        window.location.href = url;
+    }
+}
+
+function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('levelFilter').value = 'all';
+    document.getElementById('moduleFilter').value = 'all';
+    document.getElementById('limitFilter').value = '100';
+    window.location.href = '/system-admin/logs';
+}
+
+function removeFilter(filterType) {
+    const filters = {
+        'level': document.getElementById('levelFilter'),
+        'module': document.getElementById('moduleFilter')
+    };
+
+    if (filters[filterType]) {
+        filters[filterType].value = 'all';
+        applyFilters();
+    }
+}
+
+function refreshLogs() {
+    showLoading();
+
+    fetch('/system-admin/api/logs?limit=' + document.getElementById('limitFilter').value)
+        .then(response => response.json())
+        .then(logs => {
+            updateLogsTable(logs);
+            updateLastUpdated();
+            hideLoading();
+        })
+        .catch(error => {
+            console.error('Error fetching logs:', error);
+            hideLoading();
+            showNotification('Failed to refresh logs', 'error');
+        });
+}
+
+function updateLogsTable(logs) {
+    const tbody = document.getElementById('logsTableBody');
+
+    if (logs.length === 0) {
+        showEmptyState();
+        return;
+    }
+
+    hideEmptyState();
+
+    tbody.innerHTML = logs.map(log => `
+        <tr class="log-entry">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${log.timestamp}</td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full log-level-${log.level.toLowerCase()}">
+                    ${log.level}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${log.module}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">${log.message}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${log.ip}</td>
+        </tr>
+    `).join('');
+}
+
+function filterLogsClientSide(searchTerm) {
+    const rows = document.querySelectorAll('#logsTableBody tr');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const matches = text.includes(searchTerm.toLowerCase());
+
+        if (matches) {
+            row.style.display = '';
+            visibleCount++;
+            // Highlight search terms
+            highlightSearchTerm(row, searchTerm);
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    if (visibleCount === 0) {
+        showEmptyState();
+    } else {
+        hideEmptyState();
+    }
+}
+
+function highlightSearchTerm(row, searchTerm) {
+    const cells = row.querySelectorAll('td');
+    cells.forEach(cell => {
+        if (cell.querySelector('.search-highlight')) {
+            // Remove existing highlights
+            cell.innerHTML = cell.textContent;
+        }
+
+        const regex = new RegExp(`(${searchTerm})`, 'gi');
+        cell.innerHTML = cell.innerHTML.replace(regex, '<span class="search-highlight">$1</span>');
+    });
+}
+
+function exportLogs() {
+    const level = document.getElementById('levelFilter').value;
+    const module = document.getElementById('moduleFilter').value;
+    const limit = document.getElementById('limitFilter').value;
+
+    const params = new URLSearchParams();
+    params.append('format', 'csv');
+    if (level !== 'all') params.append('level', level);
+    if (module !== 'all') params.append('module', module);
+    if (limit) params.append('limit', limit);
+
+    // Create download link
+    const url = `/system-admin/logs/export?${params.toString()}`;
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `system_logs_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showNotification('Log export initiated', 'success');
+}
+
+function confirmClearLogs() {
+    if (confirm('Are you sure you want to clear all logs? This action cannot be undone.')) {
+        clearLogs();
+    }
+}
+
+function clearLogs() {
+    fetch('/system-admin/logs/clear', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Logs cleared successfully', 'success');
+            refreshLogs();
+        } else {
+            showNotification('Failed to clear logs', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error clearing logs:', error);
+        showNotification('Error clearing logs', 'error');
+    });
+}
+
+function showLoading() {
+    document.getElementById('loadingIndicator').classList.remove('hidden');
+    document.getElementById('logsTableBody').style.opacity = '0.5';
+}
+
+function hideLoading() {
+    document.getElementById('loadingIndicator').classList.add('hidden');
+    document.getElementById('logsTableBody').style.opacity = '1';
+}
+
+function showEmptyState() {
+    document.getElementById('emptyState').classList.remove('hidden');
+    document.querySelector('table').style.display = 'none';
+}
+
+function hideEmptyState() {
+    document.getElementById('emptyState').classList.add('hidden');
+    document.querySelector('table').style.display = 'table';
+}
+
+function updateLastUpdated() {
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+}
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 p-4 rounded-md shadow-lg z-50 ${
+        type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+        'bg-red-100 text-red-800 border border-red-200'
+    }`;
+    notification.textContent = message;
+
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', function() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+});
+</script>
 {% endblock %}

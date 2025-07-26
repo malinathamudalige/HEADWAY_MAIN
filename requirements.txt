@@ -1,15 +1,35 @@
-# Updated requirements.txt with MongoDB dependencies
-Flask==2.3.3
-Werkzeug==3.0.6
-Jinja2==3.1.6
-click==8.1.7
-itsdangerous==2.1.2
-MarkupSafe==2.1.3
+# Minimal Requirements for System Admin Dashboard (Python 3.13 Compatible)
 
-# MongoDB dependencies
-pymongo==4.6.3
-dnspython==2.4.2
+# Core Flask
+Flask==3.0.0
+Werkzeug==3.0.1
+Jinja2==3.1.2
 
-# Environment management
+# Database
+Flask-PyMongo==2.3.0
+pymongo==4.6.1
+
+# System Monitoring (Essential)
+psutil==5.9.7
+
+# Data visualization (Essential for charts)
+matplotlib==3.8.2
+plotly==5.18.0
+
+# Performance monitoring
+memory-profiler==0.61.0
+
+# Enhanced logging
+colorlog==6.8.0
+
+# Date handling
+python-dateutil==2.8.2
+
+# HTTP requests
+requests==2.31.0
+
+# Environment variables
 python-dotenv==1.0.0
 
+# Authentication (if you use bcrypt)
+bcrypt==4.1.2

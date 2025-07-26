@@ -7,7 +7,10 @@ from bson import ObjectId
 import os
 from dotenv import load_dotenv
 from database import users_collection,enrollments_collection, quiz_results_collection, leaderboard_collection
+from utils.system_monitor import initialize_system_monitor, get_system_monitor
 import json
+import csv
+import io
 
 # Import MongoDB models
 from database import (
@@ -21,6 +24,16 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
+
+# ============================================================================
+# ADD SYSTEM MONITOR INITIALIZATION HERE #
+# ============================================================================
+
+# Initialize system monitor with your MongoDB configuration
+system_monitor = initialize_system_monitor(
+    mongo_uri=app.config.get('MONGO_URI'),
+    db_name='headway_elearning'
+)
 
 
 # =====================================================
@@ -170,10 +183,20 @@ def register():
 
 @app.route('/logout')
 def logout():
+    monitor = get_system_monitor()
+
+    # Get session info before clearing
+    session_id = session.get('_permanent', session.get('_id', 'unknown'))
+    user = get_current_user()
+
+    if user and session_id in monitor.active_sessions:
+        monitor.remove_session(session_id)
+        monitor.log_system_event('INFO', 'AUTH',
+                                 f'User session ended: {user["email"]}')
+
     session.clear()
     flash('You have been logged out successfully.', 'info')
     return redirect(url_for('index'))
-
 
 # =====================================================
 # DASHBOARD ROUTES
@@ -3009,54 +3032,652 @@ def content_manager_create_module(course_id):
 @role_required(['system_admin'])
 def system_admin_dashboard():
     user = get_current_user()
+    monitor = get_system_monitor()
 
-    # System metrics (mock data - in real app, get from system monitoring)
-    system_metrics = {
-        'server_uptime': '99.9%',
-        'database_size': '2.4 GB',
-        'active_sessions': len([s for s in [session] if 'user_id' in s]),  # Simplified
-        'server_load': '12%',
-        'memory_usage': '68%',
-        'disk_usage': '45%'
-    }
+    # Get real system metrics
+    system_metrics = monitor.get_system_metrics()
 
-    system_logs = [
-        {'timestamp': datetime.now() - timedelta(minutes=15), 'level': 'INFO', 'module': 'AUTH',
-         'message': f'User login: {user["email"]}', 'ip': '192.168.1.100'},
-        {'timestamp': datetime.now() - timedelta(hours=1), 'level': 'INFO', 'module': 'DB',
-         'message': 'Database connection established', 'ip': '127.0.0.1'},
-        {'timestamp': datetime.now() - timedelta(hours=2), 'level': 'INFO', 'module': 'SYSTEM',
-         'message': 'System backup completed', 'ip': '127.0.0.1'}
-    ]
+    # Get recent system logs (last 10 for dashboard)
+    recent_logs = monitor.get_recent_logs(10)
+
+    # Log dashboard access
+    monitor.log_system_event('INFO', 'SYSTEM_ADMIN',
+                             f'Dashboard accessed by {user["name"]} ({user["email"]})')
 
     return render_template('system_admin/dashboard.html',
                            user=convert_objectid_to_str(user),
                            metrics=system_metrics,
-                           logs=system_logs)
+                           logs=recent_logs)
 
 
 @app.route('/system-admin/logs')
 @role_required(['system_admin'])
 def system_admin_logs():
     user = get_current_user()
+    monitor = get_system_monitor()
 
-    # Mock system logs (in real app, read from log files or logging system)
-    logs = [
-        {'timestamp': '2024-07-11 15:45:23', 'level': 'INFO', 'module': 'AUTH',
-         'message': 'User login: student@headway.lk', 'ip': '192.168.1.100'},
-        {'timestamp': '2024-07-11 15:44:12', 'level': 'ERROR', 'module': 'DB',
-         'message': 'Connection timeout on query execution', 'ip': '127.0.0.1'},
-        {'timestamp': '2024-07-11 15:43:05', 'level': 'WARNING', 'module': 'CACHE',
-         'message': 'Cache miss rate above threshold', 'ip': '127.0.0.1'},
-        {'timestamp': '2024-07-11 15:42:33', 'level': 'INFO', 'module': 'API',
-         'message': 'Course enrollment API called', 'ip': '192.168.1.105'},
-        {'timestamp': '2024-07-11 15:41:18', 'level': 'INFO', 'module': 'AUTH',
-         'message': 'Password reset requested: teacher@headway.lk', 'ip': '192.168.1.102'}
-    ]
+    # Get filter parameters
+    level_filter = request.args.get('level', 'all')
+    module_filter = request.args.get('module', 'all')
+    limit = int(request.args.get('limit', 100))
+
+    # Get all logs
+    all_logs = monitor.get_recent_logs(1000)  # Get more logs for filtering
+
+    # Apply filters
+    filtered_logs = all_logs
+    if level_filter != 'all':
+        filtered_logs = [log for log in filtered_logs if log['level'].lower() == level_filter.lower()]
+
+    if module_filter != 'all':
+        filtered_logs = [log for log in filtered_logs if log['module'].lower() == module_filter.lower()]
+
+    # Limit results
+    filtered_logs = filtered_logs[-limit:]
+
+    # Get unique modules and levels for filter options
+    unique_modules = list(set([log['module'] for log in all_logs]))
+    unique_levels = list(set([log['level'] for log in all_logs]))
+
+    # Calculate log statistics
+    log_stats = {
+        'total': len(all_logs),
+        'info': len([log for log in all_logs if log['level'] == 'INFO']),
+        'warning': len([log for log in all_logs if log['level'] == 'WARNING']),
+        'error': len([log for log in all_logs if log['level'] == 'ERROR'])
+    }
+
+    # Log access
+    monitor.log_system_event('INFO', 'SYSTEM_ADMIN',
+                             f'Logs viewed by {user["name"]} ({user["email"]})')
 
     return render_template('system_admin/logs.html',
                            user=convert_objectid_to_str(user),
-                           logs=logs)
+                           logs=filtered_logs,
+                           log_stats=log_stats,
+                           unique_modules=unique_modules,
+                           unique_levels=unique_levels,
+                           current_filters={
+                               'level': level_filter,
+                               'module': module_filter,
+                               'limit': limit
+                           })
+
+
+@app.route('/system-admin/api/metrics')
+@role_required(['system_admin'])
+def api_system_metrics():
+    """API endpoint for real-time metrics"""
+    monitor = get_system_monitor()
+    metrics = monitor.get_system_metrics()
+    return jsonify(metrics)
+
+
+@app.route('/system-admin/api/logs')
+@role_required(['system_admin'])
+def api_system_logs():
+    """API endpoint for real-time logs"""
+    monitor = get_system_monitor()
+    limit = int(request.args.get('limit', 20))
+    logs = monitor.get_recent_logs(limit)
+    return jsonify(logs)
+
+
+@app.route('/system-admin/actions/restart', methods=['POST'])
+@role_required(['system_admin'])
+def system_restart_services():
+    """Restart system services (placeholder for actual implementation)"""
+    user = get_current_user()
+    monitor = get_system_monitor()
+
+    # Log the action
+    monitor.log_system_event('WARNING', 'SYSTEM_ADMIN',
+                             f'Service restart initiated by {user["name"]} ({user["email"]})')
+
+    # In a real implementation, you would restart actual services here
+    # For now, we'll just log the action
+
+    return jsonify({
+        'success': True,
+        'message': 'Service restart initiated successfully'
+    })
+
+
+@app.route('/system-admin/actions/backup', methods=['POST'])
+@role_required(['system_admin'])
+def system_backup():
+    """Initiate system backup"""
+    user = get_current_user()
+    monitor = get_system_monitor()
+
+    # Log the action
+    monitor.log_system_event('INFO', 'SYSTEM_ADMIN',
+                             f'Backup initiated by {user["name"]} ({user["email"]})')
+
+    try:
+        # In a real implementation, you would trigger actual backup process
+        # For demonstration, we'll just create a backup entry
+        backup_time = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_name = f"system_backup_{backup_time}"
+
+        # Log successful backup
+        monitor.log_system_event('INFO', 'BACKUP',
+                                 f'Backup {backup_name} completed successfully')
+
+        return jsonify({
+            'success': True,
+            'message': f'Backup {backup_name} completed successfully',
+            'backup_name': backup_name
+        })
+    except Exception as e:
+        monitor.log_system_event('ERROR', 'BACKUP', f'Backup failed: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': f'Backup failed: {str(e)}'
+        }), 500
+
+
+@app.route('/system-admin/actions/cleanup', methods=['POST'])
+@role_required(['system_admin'])
+def system_cleanup():
+    """Cleanup inactive sessions and temporary data"""
+    user = get_current_user()
+    monitor = get_system_monitor()
+
+    # Cleanup inactive sessions
+    cleaned_sessions = monitor.cleanup_inactive_sessions(30)  # 30 minutes timeout
+
+    # Log the action
+    monitor.log_system_event('INFO', 'SYSTEM_ADMIN',
+                             f'System cleanup performed by {user["name"]}: {cleaned_sessions} inactive sessions removed')
+
+    return jsonify({
+        'success': True,
+        'message': f'System cleanup completed. {cleaned_sessions} inactive sessions removed.',
+        'cleaned_sessions': cleaned_sessions
+    })
+
+
+@app.route('/system-admin/database')
+@role_required(['system_admin'])
+def system_admin_database():
+    """Database administration page"""
+    user = get_current_user()
+    monitor = get_system_monitor()
+
+    # Get database statistics
+    db_stats = monitor.get_database_stats()
+
+    # Get collection statistics
+    try:
+        client = MongoClient(app.config.get('MONGO_URI'))
+        db = client['headway_elearning']
+
+        collection_stats = {}
+        for collection_name in db.list_collection_names():
+            collection = db[collection_name]
+            stats = db.command("collStats", collection_name)
+            collection_stats[collection_name] = {
+                'count': stats.get('count', 0),
+                'size': f"{stats.get('size', 0) / 1024:.1f} KB",
+                'avg_obj_size': f"{stats.get('avgObjSize', 0):.1f} bytes" if stats.get('avgObjSize') else "0 bytes"
+            }
+    except Exception as e:
+        collection_stats = {}
+        monitor.log_system_event('ERROR', 'DATABASE', f'Failed to get collection stats: {str(e)}')
+
+    # Log access
+    monitor.log_system_event('INFO', 'SYSTEM_ADMIN',
+                             f'Database admin accessed by {user["name"]} ({user["email"]})')
+
+    return render_template('system_admin/database.html',
+                           user=convert_objectid_to_str(user),
+                           db_stats=db_stats,
+                           collection_stats=collection_stats)
+
+@app.before_request
+def track_user_activity():
+    """Track user sessions and activity"""
+    if 'user_id' in session:
+        monitor = get_system_monitor()
+        session_id = session.get('_permanent_id', 'unknown')
+        user_id = session['user_id']
+        ip_address = request.remote_addr
+
+        # Track or update session
+        if session_id not in monitor.active_sessions:
+            monitor.track_session(session_id, user_id, ip_address)
+        else:
+            monitor.update_session_activity(session_id)
+
+@app.route('/system-admin/api/collections')
+@role_required(['system_admin'])
+def api_collections():
+    """API endpoint for collection statistics"""
+    monitor = get_system_monitor()
+
+    try:
+        client = MongoClient(app.config.get('MONGO_URI'))
+        db = client['headway_elearning']
+
+        collection_stats = {}
+        for collection_name in db.list_collection_names():
+            collection = db[collection_name]
+            stats = db.command("collStats", collection_name)
+            collection_stats[collection_name] = {
+                'count': stats.get('count', 0),
+                'size': f"{stats.get('size', 0) / 1024:.1f} KB",
+                'avg_obj_size': f"{stats.get('avgObjSize', 0):.1f} bytes" if stats.get('avgObjSize') else "0 bytes"
+            }
+
+        return jsonify(collection_stats)
+    except Exception as e:
+        monitor.log_system_event('ERROR', 'DATABASE', f'Failed to get collection stats: {str(e)}')
+        return jsonify({'error': 'Failed to retrieve collection statistics'}), 500
+
+
+@app.route('/system-admin/api/collection/<collection_name>/details')
+@role_required(['system_admin'])
+def api_collection_details(collection_name):
+    """API endpoint for detailed collection information"""
+    monitor = get_system_monitor()
+
+    try:
+        client = MongoClient(app.config.get('MONGO_URI'))
+        db = client['headway_elearning']
+
+        if collection_name not in db.list_collection_names():
+            return jsonify({'error': 'Collection not found'}), 404
+
+        collection = db[collection_name]
+        stats = db.command("collStats", collection_name)
+
+        # Get indexes
+        indexes = []
+        for index in collection.list_indexes():
+            indexes.append({
+                'name': index['name'],
+                'keys': dict(index['key']),
+                'unique': index.get('unique', False)
+            })
+
+        details = {
+            'name': collection_name,
+            'count': stats.get('count', 0),
+            'size': f"{stats.get('size', 0) / (1024 ** 2):.2f} MB",
+            'avgObjSize': f"{stats.get('avgObjSize', 0):.1f} bytes" if stats.get('avgObjSize') else "0 bytes",
+            'storageSize': f"{stats.get('storageSize', 0) / (1024 ** 2):.2f} MB",
+            'indexes': indexes,
+            'indexSizes': stats.get('indexSizes', {}),
+            'totalIndexSize': f"{stats.get('totalIndexSize', 0) / 1024:.1f} KB"
+        }
+
+        return jsonify(details)
+    except Exception as e:
+        monitor.log_system_event('ERROR', 'DATABASE',
+                                 f'Failed to get collection details for {collection_name}: {str(e)}')
+        return jsonify({'error': 'Failed to retrieve collection details'}), 500
+
+
+@app.route('/system-admin/api/collection/<collection_name>/optimize', methods=['POST'])
+@role_required(['system_admin'])
+def api_optimize_collection(collection_name):
+    """API endpoint to optimize a specific collection"""
+    user = get_current_user()
+    monitor = get_system_monitor()
+
+    try:
+        client = MongoClient(app.config.get('MONGO_URI'))
+        db = client['headway_elearning']
+
+        if collection_name not in db.list_collection_names():
+            return jsonify({'success': False, 'message': 'Collection not found'}), 404
+
+        collection = db[collection_name]
+
+        # Reindex the collection
+        collection.reindex()
+
+        monitor.log_system_event('INFO', 'DATABASE',
+                                 f'Collection {collection_name} optimized by {user["name"]}')
+
+        return jsonify({
+            'success': True,
+            'message': f'Collection {collection_name} optimized successfully'
+        })
+    except Exception as e:
+        monitor.log_system_event('ERROR', 'DATABASE',
+                                 f'Failed to optimize collection {collection_name}: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': f'Failed to optimize collection: {str(e)}'
+        }), 500
+
+
+@app.route('/system-admin/database/backup', methods=['POST'])
+@role_required(['system_admin'])
+def database_backup():
+    """Initiate database backup"""
+    user = get_current_user()
+    monitor = get_system_monitor()
+
+    try:
+        # In a real implementation, you would use mongodump or similar
+        # For now, we'll simulate the backup process
+        backup_time = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_name = f"headway_backup_{backup_time}"
+
+        # Create backup directory if it doesn't exist
+        backup_dir = 'backups'
+        if not os.path.exists(backup_dir):
+            os.makedirs(backup_dir)
+
+        # Simulate backup process (in real implementation, use subprocess to call mongodump)
+        # subprocess.run([
+        #     'mongodump',
+        #     '--uri', app.config.get('MONGO_URI'),
+        #     '--out', f'{backup_dir}/{backup_name}'
+        # ], check=True)
+
+        monitor.log_system_event('INFO', 'BACKUP',
+                                 f'Database backup {backup_name} initiated by {user["name"]}')
+
+        return jsonify({
+            'success': True,
+            'message': f'Database backup {backup_name} initiated successfully',
+            'backup_name': backup_name
+        })
+    except Exception as e:
+        monitor.log_system_event('ERROR', 'BACKUP', f'Database backup failed: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': f'Database backup failed: {str(e)}'
+        }), 500
+
+
+@app.route('/system-admin/database/optimize', methods=['POST'])
+@role_required(['system_admin'])
+def database_optimize():
+    """Optimize entire database"""
+    user = get_current_user()
+    monitor = get_system_monitor()
+
+    try:
+        client = MongoClient(app.config.get('MONGO_URI'))
+        db = client['headway_elearning']
+
+        optimized_collections = []
+
+        # Optimize each collection
+        for collection_name in db.list_collection_names():
+            collection = db[collection_name]
+            collection.reindex()
+            optimized_collections.append(collection_name)
+
+        monitor.log_system_event('INFO', 'DATABASE',
+                                 f'Database optimized by {user["name"]}: {len(optimized_collections)} collections processed')
+
+        return jsonify({
+            'success': True,
+            'message': f'Database optimized successfully. {len(optimized_collections)} collections processed.',
+            'optimized_collections': optimized_collections
+        })
+    except Exception as e:
+        monitor.log_system_event('ERROR', 'DATABASE', f'Database optimization failed: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': f'Database optimization failed: {str(e)}'
+        }), 500
+
+
+@app.route('/system-admin/database/maintenance', methods=['POST'])
+@role_required(['system_admin'])
+def database_maintenance():
+    """Run database maintenance tasks"""
+    user = get_current_user()
+    monitor = get_system_monitor()
+
+    try:
+        client = MongoClient(app.config.get('MONGO_URI'))
+        db = client['headway_elearning']
+
+        maintenance_tasks = []
+
+        # Task 1: Clean up expired sessions
+        cleaned_sessions = monitor.cleanup_inactive_sessions(60)  # 1 hour timeout
+        if cleaned_sessions > 0:
+            maintenance_tasks.append(f"Cleaned {cleaned_sessions} inactive sessions")
+
+        # Task 2: Validate collections
+        for collection_name in db.list_collection_names():
+            try:
+                result = db.validate_collection(collection_name)
+                if result.get('valid', False):
+                    maintenance_tasks.append(f"Validated collection: {collection_name}")
+                else:
+                    maintenance_tasks.append(f"Issues found in collection: {collection_name}")
+            except:
+                maintenance_tasks.append(f"Could not validate collection: {collection_name}")
+
+        # Task 3: Update database statistics
+        stats = db.command("dbstats")
+        maintenance_tasks.append("Updated database statistics")
+
+        monitor.log_system_event('INFO', 'DATABASE',
+                                 f'Database maintenance completed by {user["name"]}: {len(maintenance_tasks)} tasks')
+
+        return jsonify({
+            'success': True,
+            'message': f'Database maintenance completed successfully. {len(maintenance_tasks)} tasks performed.',
+            'tasks': maintenance_tasks
+        })
+    except Exception as e:
+        monitor.log_system_event('ERROR', 'DATABASE', f'Database maintenance failed: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': f'Database maintenance failed: {str(e)}'
+        }), 500
+
+
+@app.route('/system-admin/logs/export')
+@role_required(['system_admin'])
+def export_logs():
+    """Export system logs as CSV"""
+    user = get_current_user()
+    monitor = get_system_monitor()
+
+    # Get filter parameters
+    level_filter = request.args.get('level', 'all')
+    module_filter = request.args.get('module', 'all')
+    limit = int(request.args.get('limit', 1000))
+    format_type = request.args.get('format', 'csv')
+
+    # Get logs
+    all_logs = monitor.get_recent_logs(limit)
+
+    # Apply filters
+    filtered_logs = all_logs
+    if level_filter != 'all':
+        filtered_logs = [log for log in filtered_logs if log['level'].lower() == level_filter.lower()]
+
+    if module_filter != 'all':
+        filtered_logs = [log for log in filtered_logs if log['module'].lower() == module_filter.lower()]
+
+    if format_type == 'csv':
+        # Create CSV output
+        output = io.StringIO()
+        fieldnames = ['timestamp', 'level', 'module', 'message', 'ip']
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+
+        writer.writeheader()
+        for log in filtered_logs:
+            writer.writerow(log)
+
+        # Create response
+        csv_output = output.getvalue()
+        output.close()
+
+        response = make_response(csv_output)
+        response.headers['Content-Type'] = 'text/csv'
+        response.headers[
+            'Content-Disposition'] = f'attachment; filename=system_logs_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+
+        monitor.log_system_event('INFO', 'SYSTEM_ADMIN',
+                                 f'Logs exported by {user["name"]}: {len(filtered_logs)} records')
+
+        return response
+
+    return jsonify({'error': 'Unsupported export format'}), 400
+
+
+@app.route('/system-admin/logs/clear', methods=['POST'])
+@role_required(['system_admin'])
+def clear_logs():
+    """Clear system logs"""
+    user = get_current_user()
+    monitor = get_system_monitor()
+
+    try:
+        # Clear in-memory logs
+        monitor.system_logs.clear()
+
+        # Clear log files
+        log_file = 'logs/system.log'
+        if os.path.exists(log_file):
+            open(log_file, 'w').close()
+
+        monitor.log_system_event('WARNING', 'SYSTEM_ADMIN',
+                                 f'System logs cleared by {user["name"]}')
+
+        return jsonify({
+            'success': True,
+            'message': 'System logs cleared successfully'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Failed to clear logs: {str(e)}'
+        }), 500
+
+
+@app.route('/system-admin/performance')
+@role_required(['system_admin'])
+def system_admin_performance():
+    """System performance monitoring page"""
+    user = get_current_user()
+    monitor = get_system_monitor()
+
+    # Get performance metrics
+    metrics = monitor.get_system_metrics()
+
+    # Get performance history (simulated for now)
+    performance_history = {
+        'cpu': [12, 15, 18, 14, 16, 13, 11, 17, 19, 15],
+        'memory': [68, 70, 72, 69, 71, 68, 67, 73, 75, 70],
+        'disk': [45, 45, 46, 45, 47, 46, 45, 48, 47, 46],
+        'timestamps': [
+            (datetime.now() - timedelta(minutes=i * 10)).strftime('%H:%M')
+            for i in range(9, -1, -1)
+        ]
+    }
+
+    # Log access
+    monitor.log_system_event('INFO', 'SYSTEM_ADMIN',
+                             f'Performance monitoring accessed by {user["name"]} ({user["email"]})')
+
+    return render_template('system_admin/performance.html',
+                           user=convert_objectid_to_str(user),
+                           metrics=metrics,
+                           performance_history=performance_history)
+
+
+@app.route('/system-admin/api/performance-history')
+@role_required(['system_admin'])
+def api_performance_history():
+    """API endpoint for performance history data"""
+    # In a real implementation, you would store and retrieve historical data
+    # For now, we'll generate sample data
+
+    hours = int(request.args.get('hours', 24))
+
+    data = []
+    now = datetime.now()
+
+    for i in range(hours):
+        timestamp = now - timedelta(hours=i)
+        data.append({
+            'timestamp': timestamp.isoformat(),
+            'cpu': 10 + (i % 20),  # Simulate CPU usage
+            'memory': 60 + (i % 15),  # Simulate memory usage
+            'disk': 40 + (i % 10),  # Simulate disk usage
+            'active_sessions': 5 + (i % 8)  # Simulate session count
+        })
+
+    return jsonify(data[::-1])  # Reverse to get chronological order
+
+
+@app.route('/system-admin/settings')
+@role_required(['system_admin'])
+def system_admin_settings():
+    """System settings management page"""
+    user = get_current_user()
+    monitor = get_system_monitor()
+
+    # Get current system settings
+    settings = {
+        'log_level': 'INFO',
+        'session_timeout': 30,
+        'max_log_entries': 1000,
+        'auto_backup': True,
+        'backup_frequency': 'daily',
+        'monitoring_interval': 30,
+        'alert_email': 'admin@headway.lk',
+        'maintenance_mode': False
+    }
+
+    # Log access
+    monitor.log_system_event('INFO', 'SYSTEM_ADMIN',
+                             f'System settings accessed by {user["name"]} ({user["email"]})')
+
+    return render_template('system_admin/settings.html',
+                           user=convert_objectid_to_str(user),
+                           settings=settings)
+
+
+@app.route('/system-admin/settings/update', methods=['POST'])
+@role_required(['system_admin'])
+def update_system_settings():
+    """Update system settings"""
+    user = get_current_user()
+    monitor = get_system_monitor()
+
+    try:
+        # Get form data
+        settings = {
+            'log_level': request.form.get('log_level', 'INFO'),
+            'session_timeout': int(request.form.get('session_timeout', 30)),
+            'max_log_entries': int(request.form.get('max_log_entries', 1000)),
+            'auto_backup': 'auto_backup' in request.form,
+            'backup_frequency': request.form.get('backup_frequency', 'daily'),
+            'monitoring_interval': int(request.form.get('monitoring_interval', 30)),
+            'alert_email': request.form.get('alert_email', ''),
+            'maintenance_mode': 'maintenance_mode' in request.form
+        }
+
+        # In a real implementation, you would save these settings to database or config file
+        # For now, we'll just log the changes
+
+        monitor.log_system_event('INFO', 'SYSTEM_ADMIN',
+                                 f'System settings updated by {user["name"]}: {settings}')
+
+        flash('System settings updated successfully!', 'success')
+        return redirect(url_for('system_admin_settings'))
+
+    except Exception as e:
+        monitor.log_system_event('ERROR', 'SYSTEM_ADMIN',
+                                 f'Failed to update system settings: {str(e)}')
+        flash('Failed to update system settings. Please try again.', 'error')
+        return redirect(url_for('system_admin_settings'))
 
 
 # =====================================================

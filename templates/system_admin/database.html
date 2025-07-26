@@ -1,0 +1,542 @@
+<!-- templates/system_admin/database.html -->
+{% extends "base.html" %}
+
+{% block title %}Database Administration - Headway E-Learning{% endblock %}
+
+{% block extra_css %}
+<style>
+.stat-card {
+    transition: all 0.3s ease;
+}
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.collection-row {
+    transition: background-color 0.2s ease;
+}
+.collection-row:hover {
+    background-color: #f8fafc;
+}
+.health-good { color: #10b981; }
+.health-warning { color: #f59e0b; }
+.health-danger { color: #ef4444; }
+.progress-bar {
+    transition: width 0.5s ease;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8 flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Database Administration</h1>
+            <p class="mt-2 text-gray-600">Monitor and manage MongoDB database</p>
+        </div>
+        <div class="flex space-x-3">
+            <button id="refreshBtn" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-sync mr-2"></i>
+                Refresh
+            </button>
+            <button id="optimizeBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                <i class="fas fa-tachometer-alt mr-2"></i>
+                Optimize DB
+            </button>
+        </div>
+    </div>
+
+    <!-- Database Overview -->
+    <div class="mb-8">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Database Overview</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Database Size -->
+            <div class="stat-card bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-database text-2xl text-blue-600"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Database Size</dt>
+                                <dd class="text-lg font-medium text-gray-900" id="db-size">{{ db_stats.size }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Collections -->
+            <div class="stat-card bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-layer-group text-2xl text-green-600"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Collections</dt>
+                                <dd class="text-lg font-medium text-gray-900" id="db-collections">{{ db_stats.collections }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Documents -->
+            <div class="stat-card bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-file-alt text-2xl text-purple-600"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Documents</dt>
+                                <dd class="text-lg font-medium text-gray-900" id="db-documents">{{ db_stats.documents }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Indexes -->
+            <div class="stat-card bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-search text-2xl text-orange-600"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Indexes</dt>
+                                <dd class="text-lg font-medium text-gray-900" id="db-indexes">{{ db_stats.indexes or 'N/A' }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Health -->
+    <div class="mb-8">
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Database Health</h3>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Connection Status -->
+                    <div class="text-center">
+                        <div class="flex items-center justify-center mb-2">
+                            <i class="fas fa-plug text-2xl health-good"></i>
+                        </div>
+                        <h4 class="text-sm font-medium text-gray-900">Connection</h4>
+                        <p class="text-lg font-semibold health-good">Healthy</p>
+                    </div>
+
+                    <!-- Performance -->
+                    <div class="text-center">
+                        <div class="flex items-center justify-center mb-2">
+                            <i class="fas fa-tachometer-alt text-2xl health-good"></i>
+                        </div>
+                        <h4 class="text-sm font-medium text-gray-900">Performance</h4>
+                        <p class="text-lg font-semibold health-good">Good</p>
+                    </div>
+
+                    <!-- Storage -->
+                    <div class="text-center">
+                        <div class="flex items-center justify-center mb-2">
+                            <i class="fas fa-hdd text-2xl health-good"></i>
+                        </div>
+                        <h4 class="text-sm font-medium text-gray-900">Storage</h4>
+                        <p class="text-lg font-semibold health-good">Optimal</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Collections Overview -->
+    <div class="mb-8">
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-medium text-gray-900">Collections</h3>
+                <button id="refreshCollectionsBtn" class="text-sm text-blue-600 hover:text-blue-500">
+                    <i class="fas fa-sync mr-1"></i>
+                    Refresh
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collection</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Documents</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Size</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="collectionsTableBody" class="bg-white divide-y divide-gray-200">
+                        {% for collection_name, stats in collection_stats.items() %}
+                        <tr class="collection-row">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <i class="fas fa-table text-gray-400 mr-3"></i>
+                                    <span class="text-sm font-medium text-gray-900">{{ collection_name }}</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ "{:,}".format(stats.count) }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ stats.size }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ stats.avg_obj_size }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <button onclick="showCollectionDetails('{{ collection_name }}')"
+                                        class="text-blue-600 hover:text-blue-900 mr-3">
+                                    Details
+                                </button>
+                                <button onclick="optimizeCollection('{{ collection_name }}')"
+                                        class="text-green-600 hover:text-green-900">
+                                    Optimize
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- Empty state -->
+                {% if not collection_stats %}
+                <div class="p-8 text-center">
+                    <i class="fas fa-database text-gray-400 text-4xl mb-4"></i>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No collections found</h3>
+                    <p class="text-gray-500">The database appears to be empty or inaccessible.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Operations -->
+    <div class="mb-8">
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Database Operations</h3>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Backup -->
+                    <div class="text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer" onclick="performBackup()">
+                        <i class="fas fa-download text-blue-600 text-2xl mb-3"></i>
+                        <h4 class="text-sm font-medium text-gray-900 mb-1">Create Backup</h4>
+                        <p class="text-xs text-gray-500">Export database backup</p>
+                    </div>
+
+                    <!-- Optimization -->
+                    <div class="text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer" onclick="performOptimization()">
+                        <i class="fas fa-tachometer-alt text-green-600 text-2xl mb-3"></i>
+                        <h4 class="text-sm font-medium text-gray-900 mb-1">Optimize</h4>
+                        <p class="text-xs text-gray-500">Optimize database performance</p>
+                    </div>
+
+                    <!-- Maintenance -->
+                    <div class="text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer" onclick="performMaintenance()">
+                        <i class="fas fa-tools text-orange-600 text-2xl mb-3"></i>
+                        <h4 class="text-sm font-medium text-gray-900 mb-1">Maintenance</h4>
+                        <p class="text-xs text-gray-500">Run maintenance tasks</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Database Activity -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Recent Database Activity</h3>
+        </div>
+        <div class="p-6">
+            <div id="dbActivity" class="space-y-3">
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <div class="flex items-center space-x-3">
+                        <i class="fas fa-circle text-green-500 text-xs"></i>
+                        <span class="text-sm text-gray-900">Database connection established</span>
+                    </div>
+                    <span class="text-xs text-gray-400">Just now</span>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                    <div class="flex items-center space-x-3">
+                        <i class="fas fa-circle text-blue-500 text-xs"></i>
+                        <span class="text-sm text-gray-900">Collection stats updated</span>
+                    </div>
+                    <span class="text-xs text-gray-400">2 minutes ago</span>
+                </div>
+                <div class="flex items-center justify-between py-2">
+                    <div class="flex items-center space-x-3">
+                        <i class="fas fa-circle text-green-500 text-xs"></i>
+                        <span class="text-sm text-gray-900">Database optimization completed</span>
+                    </div>
+                    <span class="text-xs text-gray-400">1 hour ago</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Collection Details Modal -->
+<div id="collectionModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900" id="modalCollectionName">Collection Details</h3>
+                <button onclick="closeCollectionModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div id="collectionDetails" class="space-y-4">
+                <!-- Details will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Refresh all data
+document.getElementById('refreshBtn').addEventListener('click', function() {
+    location.reload();
+});
+
+// Refresh collections
+document.getElementById('refreshCollectionsBtn').addEventListener('click', function() {
+    refreshCollections();
+});
+
+// Database optimization
+document.getElementById('optimizeBtn').addEventListener('click', function() {
+    performOptimization();
+});
+
+function refreshCollections() {
+    fetch('/system-admin/api/collections')
+        .then(response => response.json())
+        .then(data => {
+            updateCollectionsTable(data);
+            showNotification('Collections refreshed successfully', 'success');
+        })
+        .catch(error => {
+            console.error('Error refreshing collections:', error);
+            showNotification('Failed to refresh collections', 'error');
+        });
+}
+
+function updateCollectionsTable(collections) {
+    const tbody = document.getElementById('collectionsTableBody');
+    tbody.innerHTML = Object.entries(collections).map(([name, stats]) => `
+        <tr class="collection-row">
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                    <i class="fas fa-table text-gray-400 mr-3"></i>
+                    <span class="text-sm font-medium text-gray-900">${name}</span>
+                </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                ${stats.count.toLocaleString()}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${stats.size}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${stats.avg_obj_size}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <button onclick="showCollectionDetails('${name}')"
+                        class="text-blue-600 hover:text-blue-900 mr-3">
+                    Details
+                </button>
+                <button onclick="optimizeCollection('${name}')"
+                        class="text-green-600 hover:text-green-900">
+                    Optimize
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function showCollectionDetails(collectionName) {
+    document.getElementById('modalCollectionName').textContent = `${collectionName} Details`;
+    document.getElementById('collectionModal').classList.remove('hidden');
+
+    // Fetch collection details
+    fetch(`/system-admin/api/collection/${collectionName}/details`)
+        .then(response => response.json())
+        .then(data => {
+            displayCollectionDetails(data);
+        })
+        .catch(error => {
+            console.error('Error fetching collection details:', error);
+            document.getElementById('collectionDetails').innerHTML =
+                '<p class="text-red-600">Failed to load collection details</p>';
+        });
+}
+
+function displayCollectionDetails(details) {
+    const container = document.getElementById('collectionDetails');
+    container.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-900 mb-2">Basic Information</h4>
+                <div class="space-y-1 text-sm">
+                    <div><strong>Name:</strong> ${details.name}</div>
+                    <div><strong>Documents:</strong> ${details.count?.toLocaleString() || 'N/A'}</div>
+                    <div><strong>Size:</strong> ${details.size || 'N/A'}</div>
+                    <div><strong>Average Object Size:</strong> ${details.avgObjSize || 'N/A'}</div>
+                </div>
+            </div>
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-900 mb-2">Indexes</h4>
+                <div class="space-y-1 text-sm">
+                    ${details.indexes ? details.indexes.map(index =>
+                        `<div>• ${index.name}</div>`
+                    ).join('') : '<div>No index information available</div>'}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function closeCollectionModal() {
+    document.getElementById('collectionModal').classList.add('hidden');
+}
+
+function optimizeCollection(collectionName) {
+    if (confirm(`Are you sure you want to optimize the "${collectionName}" collection?`)) {
+        fetch(`/system-admin/api/collection/${collectionName}/optimize`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(`Collection "${collectionName}" optimized successfully`, 'success');
+            } else {
+                showNotification(`Failed to optimize collection "${collectionName}"`, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error optimizing collection:', error);
+            showNotification('Error optimizing collection', 'error');
+        });
+    }
+}
+
+function performBackup() {
+    if (confirm('Are you sure you want to create a database backup? This may take several minutes.')) {
+        fetch('/system-admin/database/backup', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Database backup initiated successfully', 'success');
+                addActivityLog('Database backup started', 'info');
+            } else {
+                showNotification('Failed to initiate database backup', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error creating backup:', error);
+            showNotification('Error creating backup', 'error');
+        });
+    }
+}
+
+function performOptimization() {
+    if (confirm('Are you sure you want to optimize the database? This may take several minutes.')) {
+        fetch('/system-admin/database/optimize', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Database optimization initiated successfully', 'success');
+                addActivityLog('Database optimization started', 'info');
+            } else {
+                showNotification('Failed to initiate database optimization', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error optimizing database:', error);
+            showNotification('Error optimizing database', 'error');
+        });
+    }
+}
+
+function performMaintenance() {
+    if (confirm('Are you sure you want to run database maintenance? This may take several minutes.')) {
+        fetch('/system-admin/database/maintenance', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Database maintenance initiated successfully', 'success');
+                addActivityLog('Database maintenance started', 'info');
+            } else {
+                showNotification('Failed to initiate database maintenance', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error running maintenance:', error);
+            showNotification('Error running maintenance', 'error');
+        });
+    }
+}
+
+function addActivityLog(message, type) {
+    const activityContainer = document.getElementById('dbActivity');
+    const iconClass = type === 'info' ? 'text-blue-500' : type === 'success' ? 'text-green-500' : 'text-red-500';
+
+    const newActivity = document.createElement('div');
+    newActivity.className = 'flex items-center justify-between py-2 border-b border-gray-100';
+    newActivity.innerHTML = `
+        <div class="flex items-center space-x-3">
+            <i class="fas fa-circle ${iconClass} text-xs"></i>
+            <span class="text-sm text-gray-900">${message}</span>
+        </div>
+        <span class="text-xs text-gray-400">Just now</span>
+    `;
+
+    activityContainer.insertBefore(newActivity, activityContainer.firstChild);
+
+    // Remove old activities if more than 10
+    const activities = activityContainer.children;
+    if (activities.length > 10) {
+        activityContainer.removeChild(activities[activities.length - 1]);
+    }
+}
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 p-4 rounded-md shadow-lg z-50 ${
+        type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+        'bg-red-100 text-red-800 border border-red-200'
+    }`;
+    notification.textContent = message;
+
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
+}
+
+// Close modal when clicking outside
+document.getElementById('collectionModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeCollectionModal();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,443 @@
+<!-- templates/system_admin/settings.html -->
+{% extends "base.html" %}
+
+{% block title %}System Settings - Headway E-Learning{% endblock %}
+
+{% block extra_css %}
+<style>
+.settings-section {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+.settings-header {
+    background-color: #f9fafb;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+.settings-content {
+    padding: 1.5rem;
+}
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+input:checked + .slider {
+    background-color: #3b82f6;
+}
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+.danger-zone {
+    border: 1px solid #fecaca;
+    background-color: #fef2f2;
+}
+.danger-zone .settings-header {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">System Settings</h1>
+        <p class="mt-2 text-gray-600">Configure system behavior, monitoring, and administrative preferences</p>
+    </div>
+
+    <form method="POST" action="{{ url_for('update_system_settings') }}">
+        <!-- Logging Settings -->
+        <div class="settings-section">
+            <div class="settings-header">
+                <h3 class="text-lg font-medium text-gray-900">Logging Configuration</h3>
+                <p class="text-sm text-gray-600">Configure system logging behavior and retention</p>
+            </div>
+            <div class="settings-content">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="log_level" class="block text-sm font-medium text-gray-700 mb-2">Log Level</label>
+                        <select id="log_level" name="log_level"
+                                class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="DEBUG" {% if settings.log_level == 'DEBUG' %}selected{% endif %}>DEBUG</option>
+                            <option value="INFO" {% if settings.log_level == 'INFO' %}selected{% endif %}>INFO</option>
+                            <option value="WARNING" {% if settings.log_level == 'WARNING' %}selected{% endif %}>WARNING</option>
+                            <option value="ERROR" {% if settings.log_level == 'ERROR' %}selected{% endif %}>ERROR</option>
+                            <option value="CRITICAL" {% if settings.log_level == 'CRITICAL' %}selected{% endif %}>CRITICAL</option>
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">Minimum log level to record</p>
+                    </div>
+
+                    <div>
+                        <label for="max_log_entries" class="block text-sm font-medium text-gray-700 mb-2">Max Log Entries</label>
+                        <input type="number" id="max_log_entries" name="max_log_entries"
+                               value="{{ settings.max_log_entries }}" min="100" max="10000" step="100"
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="mt-1 text-xs text-gray-500">Maximum number of log entries to keep in memory</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Session Management -->
+        <div class="settings-section">
+            <div class="settings-header">
+                <h3 class="text-lg font-medium text-gray-900">Session Management</h3>
+                <p class="text-sm text-gray-600">Configure user session behavior and timeouts</p>
+            </div>
+            <div class="settings-content">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="session_timeout" class="block text-sm font-medium text-gray-700 mb-2">Session Timeout (minutes)</label>
+                        <input type="number" id="session_timeout" name="session_timeout"
+                               value="{{ settings.session_timeout }}" min="5" max="480" step="5"
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="mt-1 text-xs text-gray-500">Inactive session timeout duration</p>
+                    </div>
+
+                    <div>
+                        <label for="monitoring_interval" class="block text-sm font-medium text-gray-700 mb-2">Monitoring Interval (seconds)</label>
+                        <input type="number" id="monitoring_interval" name="monitoring_interval"
+                               value="{{ settings.monitoring_interval }}" min="10" max="300" step="10"
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="mt-1 text-xs text-gray-500">System monitoring refresh interval</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Backup Configuration -->
+        <div class="settings-section">
+            <div class="settings-header">
+                <h3 class="text-lg font-medium text-gray-900">Backup Configuration</h3>
+                <p class="text-sm text-gray-600">Configure automatic backup settings</p>
+            </div>
+            <div class="settings-content">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <label for="auto_backup" class="text-sm font-medium text-gray-700">Enable Automatic Backup</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="auto_backup" name="auto_backup"
+                                       {% if settings.auto_backup %}checked{% endif %}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-500">Automatically create system backups</p>
+                    </div>
+
+                    <div>
+                        <label for="backup_frequency" class="block text-sm font-medium text-gray-700 mb-2">Backup Frequency</label>
+                        <select id="backup_frequency" name="backup_frequency"
+                                class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="hourly" {% if settings.backup_frequency == 'hourly' %}selected{% endif %}>Hourly</option>
+                            <option value="daily" {% if settings.backup_frequency == 'daily' %}selected{% endif %}>Daily</option>
+                            <option value="weekly" {% if settings.backup_frequency == 'weekly' %}selected{% endif %}>Weekly</option>
+                            <option value="monthly" {% if settings.backup_frequency == 'monthly' %}selected{% endif %}>Monthly</option>
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">How often to create automatic backups</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Settings -->
+        <div class="settings-section">
+            <div class="settings-header">
+                <h3 class="text-lg font-medium text-gray-900">Notification Settings</h3>
+                <p class="text-sm text-gray-600">Configure system alerts and notifications</p>
+            </div>
+            <div class="settings-content">
+                <div class="space-y-4">
+                    <div>
+                        <label for="alert_email" class="block text-sm font-medium text-gray-700 mb-2">Alert Email Address</label>
+                        <input type="email" id="alert_email" name="alert_email"
+                               value="{{ settings.alert_email }}" placeholder="admin@headway.lk"
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="mt-1 text-xs text-gray-500">Email address to receive system alerts</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="email_errors" name="email_errors" checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="email_errors" class="ml-2 text-sm text-gray-700">Email on Errors</label>
+                        </div>
+
+                        <div class="flex items-center">
+                            <input type="checkbox" id="email_high_usage" name="email_high_usage" checked
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="email_high_usage" class="ml-2 text-sm text-gray-700">High Resource Usage</label>
+                        </div>
+
+                        <div class="flex items-center">
+                            <input type="checkbox" id="email_backup_status" name="email_backup_status"
+                                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                            <label for="email_backup_status" class="ml-2 text-sm text-gray-700">Backup Status</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Thresholds -->
+        <div class="settings-section">
+            <div class="settings-header">
+                <h3 class="text-lg font-medium text-gray-900">Performance Thresholds</h3>
+                <p class="text-sm text-gray-600">Configure alert thresholds for system resources</p>
+            </div>
+            <div class="settings-content">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label for="cpu_threshold" class="block text-sm font-medium text-gray-700 mb-2">CPU Threshold (%)</label>
+                        <input type="number" id="cpu_threshold" name="cpu_threshold"
+                               value="80" min="50" max="95" step="5"
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="mt-1 text-xs text-gray-500">Alert when CPU usage exceeds this threshold</p>
+                    </div>
+
+                    <div>
+                        <label for="memory_threshold" class="block text-sm font-medium text-gray-700 mb-2">Memory Threshold (%)</label>
+                        <input type="number" id="memory_threshold" name="memory_threshold"
+                               value="85" min="60" max="95" step="5"
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="mt-1 text-xs text-gray-500">Alert when memory usage exceeds this threshold</p>
+                    </div>
+
+                    <div>
+                        <label for="disk_threshold" class="block text-sm font-medium text-gray-700 mb-2">Disk Threshold (%)</label>
+                        <input type="number" id="disk_threshold" name="disk_threshold"
+                               value="90" min="70" max="98" step="5"
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="mt-1 text-xs text-gray-500">Alert when disk usage exceeds this threshold</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Maintenance Mode -->
+        <div class="settings-section danger-zone">
+            <div class="settings-header">
+                <h3 class="text-lg font-medium">Maintenance Mode</h3>
+                <p class="text-sm opacity-75">Enable maintenance mode to prevent user access during updates</p>
+            </div>
+            <div class="settings-content">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-900">Enable Maintenance Mode</h4>
+                        <p class="text-xs text-gray-600">This will prevent all users except system administrators from accessing the system</p>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="maintenance_mode" name="maintenance_mode"
+                               {% if settings.maintenance_mode %}checked{% endif %}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div id="maintenanceWarning" class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md"
+                     style="display: {% if settings.maintenance_mode %}block{% else %}none{% endif %}">
+                    <div class="flex">
+                        <i class="fas fa-exclamation-triangle text-yellow-600 mr-2 mt-0.5"></i>
+                        <div>
+                            <h4 class="text-sm font-medium text-yellow-800">Maintenance Mode Active</h4>
+                            <p class="text-xs text-yellow-700">Only system administrators can access the application while maintenance mode is enabled.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center justify-between">
+            <button type="button" id="resetBtn"
+                    class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-undo mr-2"></i>
+                Reset to Defaults
+            </button>
+
+            <div class="space-x-3">
+                <button type="button" onclick="history.back()"
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <i class="fas fa-save mr-2"></i>
+                    Save Settings
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3 text-center">
+            <h3 class="text-lg font-medium text-gray-900" id="modalTitle">Confirm Changes</h3>
+            <div class="mt-2 px-7 py-3">
+                <p class="text-sm text-gray-500" id="modalMessage">Are you sure you want to save these settings?</p>
+            </div>
+            <div class="items-center px-4 py-3">
+                <button id="confirmSave"
+                        class="px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-blue-700 mr-2">
+                    Save Changes
+                </button>
+                <button onclick="closeModal()"
+                        class="px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md shadow-sm hover:bg-gray-400">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Maintenance mode toggle warning
+document.getElementById('maintenance_mode').addEventListener('change', function() {
+    const warning = document.getElementById('maintenanceWarning');
+    if (this.checked) {
+        warning.style.display = 'block';
+    } else {
+        warning.style.display = 'none';
+    }
+});
+
+// Form submission with confirmation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const maintenanceMode = document.getElementById('maintenance_mode').checked;
+
+    if (maintenanceMode) {
+        e.preventDefault();
+        showConfirmModal(
+            'Enable Maintenance Mode?',
+            'This will prevent all users except system administrators from accessing the system. Are you sure you want to continue?'
+        );
+    }
+});
+
+// Reset to defaults
+document.getElementById('resetBtn').addEventListener('click', function() {
+    if (confirm('Are you sure you want to reset all settings to their default values?')) {
+        resetToDefaults();
+    }
+});
+
+function showConfirmModal(title, message) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalMessage').textContent = message;
+    document.getElementById('confirmModal').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('confirmModal').classList.add('hidden');
+}
+
+document.getElementById('confirmSave').addEventListener('click', function() {
+    closeModal();
+    document.querySelector('form').submit();
+});
+
+function resetToDefaults() {
+    // Reset form values to defaults
+    document.getElementById('log_level').value = 'INFO';
+    document.getElementById('max_log_entries').value = '1000';
+    document.getElementById('session_timeout').value = '30';
+    document.getElementById('monitoring_interval').value = '30';
+    document.getElementById('auto_backup').checked = true;
+    document.getElementById('backup_frequency').value = 'daily';
+    document.getElementById('alert_email').value = 'admin@headway.lk';
+    document.getElementById('maintenance_mode').checked = false;
+    document.getElementById('maintenanceWarning').style.display = 'none';
+    document.getElementById('cpu_threshold').value = '80';
+    document.getElementById('memory_threshold').value = '85';
+    document.getElementById('disk_threshold').value = '90';
+
+    // Reset checkboxes
+    document.getElementById('email_errors').checked = true;
+    document.getElementById('email_high_usage').checked = true;
+    document.getElementById('email_backup_status').checked = false;
+
+    showNotification('Settings reset to defaults', 'success');
+}
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 p-4 rounded-md shadow-lg z-50 ${
+        type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+        'bg-red-100 text-red-800 border border-red-200'
+    }`;
+    notification.textContent = message;
+
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+// Close modal when clicking outside
+document.getElementById('confirmModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+
+// Auto-save indicator
+let hasUnsavedChanges = false;
+const formInputs = document.querySelectorAll('input, select');
+
+formInputs.forEach(input => {
+    input.addEventListener('change', function() {
+        hasUnsavedChanges = true;
+    });
+});
+
+// Warn before leaving with unsaved changes
+window.addEventListener('beforeunload', function(e) {
+    if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+    }
+});
+
+// Remove unsaved changes flag when form is submitted
+document.querySelector('form').addEventListener('submit', function() {
+    hasUnsavedChanges = false;
+});
+</script>
+{% endblock %}
