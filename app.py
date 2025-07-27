@@ -11,6 +11,7 @@ from utils.system_monitor import initialize_system_monitor, get_system_monitor
 import json
 import csv
 import io
+from flask import make_response
 
 # Import MongoDB models
 from database import (
@@ -2374,13 +2375,544 @@ def admin_get_user_data(user_id):
 def admin_courses():
     user = get_current_user()
 
+    # Get filter parameters
+    search = request.args.get('search', '').strip()
+    status_filter = request.args.get('status', '')
+    category_filter = request.args.get('category', '')
+    level_filter = request.args.get('level', '')
+    instructor_filter = request.args.get('instructor', '')
+    sort_by = request.args.get('sort', 'created_desc')
+
     # Get all courses
     all_courses = CourseModel.get_all_courses()
-    courses_data = [convert_objectid_to_str(course) for course in all_courses]
+
+    # Apply filters
+    filtered_courses = []
+    for course in all_courses:
+        # Search filter (title, description, instructor)
+        if search:
+            search_lower = search.lower()
+            instructor_name = course.get('instructor', '').lower()
+            if (search_lower not in course.get('title', '').lower() and
+                    search_lower not in course.get('description', '').lower() and
+                    search_lower not in instructor_name):
+                continue
+
+        # Status filter
+        if status_filter and course.get('status') != status_filter:
+            continue
+
+        # Category filter
+        if category_filter and course.get('category') != category_filter:
+            continue
+
+        # Level filter
+        if level_filter and course.get('level') != level_filter:
+            continue
+
+        # Instructor filter
+        if instructor_filter:
+            instructor = UserModel.find_user_by_id(course.get('instructor_id', ''))
+            if not instructor or instructor_filter not in instructor.get('name', '').lower():
+                continue
+
+        filtered_courses.append(course)
+
+    # Sort courses
+    if sort_by == 'created_desc':
+        filtered_courses.sort(key=lambda x: x.get('created_at', datetime.min), reverse=True)
+    elif sort_by == 'created_asc':
+        filtered_courses.sort(key=lambda x: x.get('created_at', datetime.min))
+    elif sort_by == 'students_desc':
+        filtered_courses.sort(key=lambda x: x.get('students_enrolled', 0), reverse=True)
+    elif sort_by == 'rating_desc':
+        filtered_courses.sort(key=lambda x: x.get('rating', 0), reverse=True)
+    elif sort_by == 'title_asc':
+        filtered_courses.sort(key=lambda x: x.get('title', '').lower())
+
+    # Convert to serializable format and add instructor names
+    courses_data = []
+    for course in filtered_courses:
+        course_data = convert_objectid_to_str(course.copy())
+
+        # Get instructor name
+        instructor = UserModel.find_user_by_id(course.get('instructor_id', ''))
+        course_data['instructor_name'] = instructor.get('name', 'Unknown') if instructor else 'Unknown'
+
+        # Get enrollment count
+        enrollments = EnrollmentModel.get_course_enrollments(str(course['_id']))
+        course_data['students_enrolled'] = len(enrollments)
+
+        # Get modules count
+        modules = ModuleModel.get_modules_by_course(str(course['_id']))
+        course_data['modules_count'] = len(modules)
+
+        courses_data.append(course_data)
+
+    # Calculate statistics
+    total_courses = len(courses_data)
+    published_courses = sum(1 for course in courses_data if course.get('status') == 'published')
+    draft_courses = sum(1 for course in courses_data if course.get('status') == 'draft')
+    archived_courses = sum(1 for course in courses_data if course.get('status') == 'archived')
+
+    # Get unique instructors for filter dropdown
+    all_instructors = UserModel.get_users_by_role('educator')
+    instructor_options = [{'id': str(inst['_id']), 'name': inst['name']} for inst in all_instructors]
 
     return render_template('admin/courses.html',
                            user=convert_objectid_to_str(user),
-                           courses=courses_data)
+                           courses=courses_data,
+                           total_courses=total_courses,
+                           published_courses=published_courses,
+                           draft_courses=draft_courses,
+                           archived_courses=archived_courses,
+                           instructor_options=instructor_options,
+                           # Filter values for form persistence
+                           search=search,
+                           status_filter=status_filter,
+                           category_filter=category_filter,
+                           level_filter=level_filter,
+                           instructor_filter=instructor_filter,
+                           sort_by=sort_by)
+
+
+@app.route('/admin/courses/export')
+@role_required(['admin'])
+def admin_export_courses():
+    """Export courses data as CSV"""
+    user = get_current_user()
+
+    # Get all courses with same filtering as main page
+    search = request.args.get('search', '').strip()
+    status_filter = request.args.get('status', '')
+    category_filter = request.args.get('category', '')
+    level_filter = request.args.get('level', '')
+    instructor_filter = request.args.get('instructor', '')
+
+    all_courses = CourseModel.get_all_courses()
+
+    # Apply same filters as main page
+    filtered_courses = []
+    for course in all_courses:
+        # Search filter
+        if search:
+            search_lower = search.lower()
+            instructor_name = course.get('instructor', '').lower()
+            if (search_lower not in course.get('title', '').lower() and
+                    search_lower not in course.get('description', '').lower() and
+                    search_lower not in instructor_name):
+                continue
+
+        # Status filter
+        if status_filter and course.get('status') != status_filter:
+            continue
+
+        # Category filter
+        if category_filter and course.get('category') != category_filter:
+            continue
+
+        # Level filter
+        if level_filter and course.get('level') != level_filter:
+            continue
+
+        # Instructor filter
+        if instructor_filter:
+            instructor = UserModel.find_user_by_id(course.get('instructor_id', ''))
+            if not instructor or instructor_filter not in instructor.get('name', '').lower():
+                continue
+
+        filtered_courses.append(course)
+
+    # Create CSV content
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Write headers
+    writer.writerow([
+        'Course ID', 'Title', 'Instructor', 'Status', 'Level', 'Category',
+        'Students Enrolled', 'Modules', 'Rating', 'Created Date', 'Updated Date'
+    ])
+
+    # Write data
+    for course in filtered_courses:
+        instructor = UserModel.find_user_by_id(course.get('instructor_id', ''))
+        instructor_name = instructor.get('name', 'Unknown') if instructor else 'Unknown'
+
+        enrollments = EnrollmentModel.get_course_enrollments(str(course['_id']))
+        modules = ModuleModel.get_modules_by_course(str(course['_id']))
+
+        writer.writerow([
+            str(course['_id']),
+            course.get('title', ''),
+            instructor_name,
+            course.get('status', ''),
+            course.get('level', ''),
+            course.get('category', ''),
+            len(enrollments),
+            len(modules),
+            course.get('rating', 0),
+            course.get('created_at', '').strftime('%Y-%m-%d %H:%M:%S') if course.get('created_at') else '',
+            course.get('updated_at', '').strftime('%Y-%m-%d %H:%M:%S') if course.get('updated_at') else ''
+        ])
+
+    # Create response
+    response = make_response(output.getvalue())
+    response.headers['Content-Type'] = 'text/csv'
+    response.headers[
+        'Content-Disposition'] = f'attachment; filename=courses_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+
+    return response
+
+
+@app.route('/admin/course/create')
+@role_required(['admin'])
+def admin_create_course():
+    """Show create course form"""
+    user = get_current_user()
+
+    # Get all educators for instructor dropdown
+    educators = UserModel.get_users_by_role('educator')
+
+    return render_template('admin/create_course.html',
+                           user=convert_objectid_to_str(user),
+                           educators=[convert_objectid_to_str(edu) for edu in educators])
+
+
+@app.route('/admin/course/create', methods=['POST'])
+@role_required(['admin'])
+def admin_create_course_submit():
+    """Handle course creation"""
+    user = get_current_user()
+
+    try:
+        # Get form data
+        title = request.form.get('title', '').strip()
+        description = request.form.get('description', '').strip()
+        instructor_id = request.form.get('instructor_id', '').strip()
+        level = request.form.get('level', '')
+        category = request.form.get('category', '').strip()
+        duration = request.form.get('duration', '').strip()
+        prerequisites = request.form.get('prerequisites', '').strip()
+        objectives = request.form.get('objectives', '').strip()
+
+        # Validation
+        if not title or not description or not instructor_id:
+            flash('Title, description, and instructor are required!', 'error')
+            return redirect(url_for('admin_create_course'))
+
+        # Verify instructor exists
+        instructor = UserModel.find_user_by_id(instructor_id)
+        if not instructor or instructor.get('role') != 'educator':
+            flash('Invalid instructor selected!', 'error')
+            return redirect(url_for('admin_create_course'))
+
+        # Create course data
+        course_data = {
+            'title': title,
+            'description': description,
+            'instructor_id': instructor_id,
+            'instructor': instructor.get('name'),
+            'level': level,
+            'category': category,
+            'duration': duration,
+            'prerequisites': prerequisites,
+            'objectives': objectives,
+            'status': 'draft',
+            'rating': 0,
+            'students_enrolled': 0,
+            'created_by': str(user['_id']),
+            'created_by_admin': True
+        }
+
+        # Create course
+        course_id = CourseModel.create_course(course_data)
+
+        flash(f'Course "{title}" created successfully!', 'success')
+        return redirect(url_for('admin_courses'))
+
+    except Exception as e:
+        print(f"Error creating course: {e}")
+        flash('An error occurred while creating the course. Please try again.', 'error')
+        return redirect(url_for('admin_create_course'))
+
+
+@app.route('/admin/course/<course_id>/view')
+@role_required(['admin'])
+def admin_view_course(course_id):
+    """View course details"""
+    user = get_current_user()
+
+    course = CourseModel.find_course_by_id(course_id)
+    if not course:
+        return jsonify({'error': 'Course not found'}), 404
+
+    # Get additional course data
+    instructor = UserModel.find_user_by_id(course.get('instructor_id', ''))
+    enrollments = EnrollmentModel.get_course_enrollments(course_id)
+    modules = ModuleModel.get_modules_by_course(course_id)
+
+    course_data = convert_objectid_to_str(course.copy())
+    course_data['instructor_name'] = instructor.get('name', 'Unknown') if instructor else 'Unknown'
+    course_data['instructor_email'] = instructor.get('email', '') if instructor else ''
+    course_data['students_enrolled'] = len(enrollments)
+    course_data['modules_count'] = len(modules)
+    course_data['completion_rate'] = sum(e.get('progress', 0) for e in enrollments) / len(
+        enrollments) if enrollments else 0
+
+    return jsonify(course_data)
+
+
+@app.route('/admin/course/<course_id>/edit')
+@role_required(['admin'])
+def admin_edit_course(course_id):
+    """Show edit course form"""
+    user = get_current_user()
+
+    course = CourseModel.find_course_by_id(course_id)
+    if not course:
+        flash('Course not found!', 'error')
+        return redirect(url_for('admin_courses'))
+
+    # Get all educators for instructor dropdown
+    educators = UserModel.get_users_by_role('educator')
+
+    return render_template('admin/edit_course.html',
+                           user=convert_objectid_to_str(user),
+                           course=convert_objectid_to_str(course),
+                           educators=[convert_objectid_to_str(edu) for edu in educators])
+
+
+@app.route('/admin/course/<course_id>/edit', methods=['POST'])
+@role_required(['admin'])
+def admin_edit_course_submit(course_id):
+    """Handle course editing"""
+    user = get_current_user()
+
+    course = CourseModel.find_course_by_id(course_id)
+    if not course:
+        flash('Course not found!', 'error')
+        return redirect(url_for('admin_courses'))
+
+    try:
+        # Get form data
+        title = request.form.get('title', '').strip()
+        description = request.form.get('description', '').strip()
+        instructor_id = request.form.get('instructor_id', '').strip()
+        level = request.form.get('level', '')
+        category = request.form.get('category', '').strip()
+        duration = request.form.get('duration', '').strip()
+        prerequisites = request.form.get('prerequisites', '').strip()
+        objectives = request.form.get('objectives', '').strip()
+        status = request.form.get('status', course.get('status', 'draft'))
+
+        # Validation
+        if not title or not description or not instructor_id:
+            flash('Title, description, and instructor are required!', 'error')
+            return redirect(url_for('admin_edit_course', course_id=course_id))
+
+        # Verify instructor exists
+        instructor = UserModel.find_user_by_id(instructor_id)
+        if not instructor or instructor.get('role') != 'educator':
+            flash('Invalid instructor selected!', 'error')
+            return redirect(url_for('admin_edit_course', course_id=course_id))
+
+        # Update course data
+        update_data = {
+            'title': title,
+            'description': description,
+            'instructor_id': instructor_id,
+            'instructor': instructor.get('name'),
+            'level': level,
+            'category': category,
+            'duration': duration,
+            'prerequisites': prerequisites,
+            'objectives': objectives,
+            'status': status,
+            'updated_by': str(user['_id']),
+            'updated_at': datetime.now()
+        }
+
+        # Update course
+        CourseModel.update_course(course_id, update_data)
+
+        flash(f'Course "{title}" updated successfully!', 'success')
+        return redirect(url_for('admin_courses'))
+
+    except Exception as e:
+        print(f"Error updating course: {e}")
+        flash('An error occurred while updating the course. Please try again.', 'error')
+        return redirect(url_for('admin_edit_course', course_id=course_id))
+
+
+@app.route('/admin/course/<course_id>/delete', methods=['POST'])
+@role_required(['admin'])
+def admin_delete_course(course_id):
+    """Delete a course"""
+    user = get_current_user()
+
+    course = CourseModel.find_course_by_id(course_id)
+    if not course:
+        return jsonify({'success': False, 'message': 'Course not found'}), 404
+
+    try:
+        # Check if course has enrollments
+        enrollments = EnrollmentModel.get_course_enrollments(course_id)
+        if enrollments:
+            return jsonify({
+                'success': False,
+                'message': f'Cannot delete course with {len(enrollments)} active enrollments. Please remove all enrollments first.'
+            }), 400
+
+        # Delete related data first
+        modules = ModuleModel.get_modules_by_course(course_id)
+        for module in modules:
+            # Delete quizzes for each module
+            quizzes = QuizModel.get_quizzes_by_module(str(module['_id']))
+            for quiz in quizzes:
+                QuizModel.delete_quiz(str(quiz['_id']))
+
+            # Delete module
+            ModuleModel.delete_module(str(module['_id']))
+
+        # Delete course
+        CourseModel.delete_course(course_id)
+
+        return jsonify({
+            'success': True,
+            'message': f'Course "{course.get("title", "")}" deleted successfully'
+        })
+
+    except Exception as e:
+        print(f"Error deleting course: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred while deleting the course'
+        }), 500
+
+
+@app.route('/admin/course/<course_id>/toggle-status', methods=['POST'])
+@role_required(['admin'])
+def admin_toggle_course_status(course_id):
+    """Toggle course status (publish/unpublish/archive)"""
+    user = get_current_user()
+
+    course = CourseModel.find_course_by_id(course_id)
+    if not course:
+        return jsonify({'success': False, 'message': 'Course not found'}), 404
+
+    try:
+        current_status = course.get('status', 'draft')
+
+        # Determine new status
+        if current_status == 'draft':
+            new_status = 'published'
+        elif current_status == 'published':
+            new_status = 'archived'
+        else:  # archived
+            new_status = 'draft'
+
+        # Update status
+        CourseModel.update_course(course_id, {
+            'status': new_status,
+            'updated_by': str(user['_id']),
+            'updated_at': datetime.now()
+        })
+
+        return jsonify({
+            'success': True,
+            'message': f'Course status changed to {new_status}',
+            'new_status': new_status
+        })
+
+    except Exception as e:
+        print(f"Error toggling course status: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred while updating course status'
+        }), 500
+
+
+@app.route('/admin/courses/bulk-action', methods=['POST'])
+@role_required(['admin'])
+def admin_bulk_course_action():
+    """Handle bulk actions on courses"""
+    user = get_current_user()
+
+    action = request.form.get('action')
+    course_ids = request.form.getlist('course_ids')
+
+    if not action or not course_ids:
+        return jsonify({'success': False, 'message': 'Invalid request'}), 400
+
+    try:
+        success_count = 0
+        error_count = 0
+
+        for course_id in course_ids:
+            try:
+                course = CourseModel.find_course_by_id(course_id)
+                if not course:
+                    error_count += 1
+                    continue
+
+                if action == 'publish':
+                    CourseModel.update_course(course_id, {
+                        'status': 'published',
+                        'updated_by': str(user['_id']),
+                        'updated_at': datetime.now()
+                    })
+                elif action == 'unpublish':
+                    CourseModel.update_course(course_id, {
+                        'status': 'draft',
+                        'updated_by': str(user['_id']),
+                        'updated_at': datetime.now()
+                    })
+                elif action == 'archive':
+                    CourseModel.update_course(course_id, {
+                        'status': 'archived',
+                        'updated_by': str(user['_id']),
+                        'updated_at': datetime.now()
+                    })
+                elif action == 'delete':
+                    # Check for enrollments
+                    enrollments = EnrollmentModel.get_course_enrollments(course_id)
+                    if enrollments:
+                        error_count += 1
+                        continue
+
+                    # Delete course and related data
+                    modules = ModuleModel.get_modules_by_course(course_id)
+                    for module in modules:
+                        quizzes = QuizModel.get_quizzes_by_module(str(module['_id']))
+                        for quiz in quizzes:
+                            QuizModel.delete_quiz(str(quiz['_id']))
+                        ModuleModel.delete_module(str(module['_id']))
+
+                    CourseModel.delete_course(course_id)
+
+                success_count += 1
+
+            except Exception as e:
+                print(f"Error processing course {course_id}: {e}")
+                error_count += 1
+
+        message = f'Bulk action completed: {success_count} successful'
+        if error_count > 0:
+            message += f', {error_count} failed'
+
+        return jsonify({
+            'success': True,
+            'message': message,
+            'success_count': success_count,
+            'error_count': error_count
+        })
+
+    except Exception as e:
+        print(f"Error in bulk action: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred during bulk operation'
+        }), 500
 
 
 @app.route('/admin/analytics')

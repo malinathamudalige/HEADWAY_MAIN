@@ -1,4 +1,4 @@
-# database.py - MongoDB Configuration and Models
+# database.py - MongoDB Configuration and Models (Complete Updated Version)
 from pymongo import MongoClient
 from bson import ObjectId
 from datetime import datetime
@@ -87,6 +87,11 @@ class UserModel:
     def get_all_users():
         """Get all users"""
         return list(users_collection.find())
+
+    @staticmethod
+    def get_users_by_role(role):
+        """Get all users with a specific role"""
+        return list(users_collection.find({'role': role}))
 
     @staticmethod
     def update_user(user_id, update_data):
@@ -190,26 +195,12 @@ class ModuleModel:
             {'$addToSet': {'completed_by': user_id}}
         )
 
-    # Add to ModuleModel class:
     @staticmethod
     def delete_module(module_id):
         """Delete module"""
         if isinstance(module_id, str):
             module_id = ObjectId(module_id)
         return modules_collection.delete_one({'_id': module_id})
-
-    # Add to QuizModel class:
-    @staticmethod
-    def get_quizzes_by_module(module_id):
-        """Get quizzes by module ID"""
-        return list(assessments_collection.find({'module_id': module_id}))
-
-    @staticmethod
-    def delete_quiz(quiz_id):
-        """Delete quiz"""
-        if isinstance(quiz_id, str):
-            quiz_id = ObjectId(quiz_id)
-        return assessments_collection.delete_one({'_id': quiz_id})
 
     @staticmethod
     def update_module(module_id, update_data):
@@ -222,6 +213,7 @@ class ModuleModel:
             {'_id': module_id},
             {'$set': update_data}
         )
+
 
 class EnrollmentModel:
     @staticmethod
@@ -385,21 +377,24 @@ class QuizResultModel:
         return list(quiz_results_collection.find({'course_id': course_id}))
 
     @staticmethod
-    def get_user_course_results(user_id, course_id):
-        """Get user's quiz results for a specific course"""
-        return list(quiz_results_collection.find({
-            'user_id': user_id,
-            'course_id': course_id
-        }))
+    def update_result(result_id, update_data):
+        """Update quiz result"""
+        if isinstance(result_id, str):
+            result_id = ObjectId(result_id)
+
+        return quiz_results_collection.update_one(
+            {'_id': result_id},
+            {'$set': update_data}
+        )
 
 
 class LeaderboardModel:
     @staticmethod
-    def update_leaderboard(quiz_result_data):
-        """Update leaderboard with new quiz result"""
-        user_id = quiz_result_data['user_id']
-        course_id = quiz_result_data['course_id']
-        score_percentage = quiz_result_data['score_percentage']
+    def update_leaderboard(quiz_result):
+        """Update leaderboard based on quiz result"""
+        user_id = quiz_result['user_id']
+        course_id = quiz_result['course_id']
+        score = quiz_result['score_percentage']
 
         # Find existing leaderboard entry
         existing_entry = leaderboard_collection.find_one({
@@ -409,100 +404,60 @@ class LeaderboardModel:
 
         if existing_entry:
             # Update existing entry
-            new_total_score = existing_entry['total_score'] + score_percentage
+            new_total_score = existing_entry['total_score'] + score
             new_quiz_count = existing_entry['quiz_count'] + 1
-            new_average_score = new_total_score / new_quiz_count
-
-            # Update best score if this one is higher
-            new_best_score = max(existing_entry['best_score'], score_percentage)
+            new_avg_score = new_total_score / new_quiz_count
+            new_best_score = max(existing_entry['best_score'], score)
 
             leaderboard_collection.update_one(
                 {'_id': existing_entry['_id']},
-                {'$set': {
-                    'total_score': new_total_score,
-                    'quiz_count': new_quiz_count,
-                    'average_score': round(new_average_score, 2),
-                    'best_score': new_best_score,
-                    'last_quiz_date': datetime.now(),
-                    'updated_at': datetime.now()
-                }}
+                {
+                    '$set': {
+                        'total_score': new_total_score,
+                        'quiz_count': new_quiz_count,
+                        'average_score': round(new_avg_score, 2),
+                        'best_score': new_best_score,
+                        'last_activity': datetime.now()
+                    }
+                }
             )
         else:
             # Create new leaderboard entry
             leaderboard_data = {
                 'user_id': user_id,
                 'course_id': course_id,
-                'total_score': score_percentage,
+                'total_score': score,
                 'quiz_count': 1,
-                'average_score': score_percentage,
-                'best_score': score_percentage,
-                'last_quiz_date': datetime.now(),
-                'created_at': datetime.now(),
-                'updated_at': datetime.now()
+                'average_score': score,
+                'best_score': score,
+                'last_activity': datetime.now(),
+                'created_at': datetime.now()
             }
             leaderboard_collection.insert_one(leaderboard_data)
 
     @staticmethod
     def get_course_leaderboard(course_id, limit=50):
         """Get leaderboard for a specific course"""
-        pipeline = [
-            {'$match': {'course_id': course_id}},
-            {'$sort': {'average_score': -1, 'best_score': -1}},
-            {'$limit': limit}
-        ]
-
-        leaderboard_data = list(leaderboard_collection.aggregate(pipeline))
-
-        # Enhance with user details
-        enhanced_leaderboard = []
-        for entry in leaderboard_data:
-            user = UserModel.find_user_by_id(entry['user_id'])
-            if user:
-                entry['user'] = {
-                    'name': user['name'],
-                    'email': user['email'],
-                    'avatar': user.get('avatar'),
-                    'level': user.get('level', 'Beginner')
-                }
-                enhanced_leaderboard.append(entry)
-
-        # Add rank
-        for i, entry in enumerate(enhanced_leaderboard):
-            entry['rank'] = i + 1
-
-        return enhanced_leaderboard
+        return list(leaderboard_collection.find({'course_id': course_id})
+                    .sort('average_score', -1)
+                    .limit(limit))
 
     @staticmethod
-    def get_user_course_ranking(user_id, course_id):
+    def get_user_ranking(user_id, course_id):
         """Get user's ranking in a specific course"""
-        pipeline = [
-            {'$match': {'course_id': course_id}},
-            {'$sort': {'average_score': -1, 'best_score': -1}},
-            {'$group': {
-                '_id': None,
-                'users': {'$push': {
-                    'user_id': '$user_id',
-                    'average_score': '$average_score'
-                }}
-            }}
-        ]
+        # Get all users in course ordered by average score
+        all_users = list(leaderboard_collection.find({'course_id': course_id})
+                         .sort('average_score', -1))
 
-        result = list(leaderboard_collection.aggregate(pipeline))
-        if result and result[0]['users']:
-            users = result[0]['users']
-            for i, user_data in enumerate(users):
-                if user_data['user_id'] == user_id:
-                    return {
-                        'rank': i + 1,
-                        'total_participants': len(users),
-                        'average_score': user_data['average_score']
-                    }
+        for index, entry in enumerate(all_users):
+            if entry['user_id'] == user_id:
+                return index + 1
 
         return None
 
     @staticmethod
     def get_top_performers(course_id, limit=10):
-        """Get top performers for a course"""
+        """Get top performers for a specific course"""
         return LeaderboardModel.get_course_leaderboard(course_id, limit)
 
 
@@ -522,6 +477,31 @@ class BadgeModel:
     def find_badge_by_name(badge_name):
         """Find badge by name"""
         return badges_collection.find_one({'name': badge_name})
+
+    @staticmethod
+    def find_badge_by_id(badge_id):
+        """Find badge by ID"""
+        if isinstance(badge_id, str):
+            badge_id = ObjectId(badge_id)
+        return badges_collection.find_one({'_id': badge_id})
+
+    @staticmethod
+    def update_badge(badge_id, update_data):
+        """Update badge"""
+        if isinstance(badge_id, str):
+            badge_id = ObjectId(badge_id)
+
+        return badges_collection.update_one(
+            {'_id': badge_id},
+            {'$set': update_data}
+        )
+
+    @staticmethod
+    def delete_badge(badge_id):
+        """Delete badge"""
+        if isinstance(badge_id, str):
+            badge_id = ObjectId(badge_id)
+        return badges_collection.delete_one({'_id': badge_id})
 
 
 class AnalyticsModel:
@@ -557,13 +537,18 @@ class AnalyticsModel:
         completed_enrollments = enrollments_collection.count_documents({'progress': 100})
         completion_rate = (completed_enrollments / total_enrollments * 100) if total_enrollments > 0 else 0
 
+        # Calculate average engagement (example metric)
+        total_quiz_results = quiz_results_collection.count_documents({})
+        avg_engagement = min(total_quiz_results / total_users * 10, 5.0) if total_users > 0 else 0
+
         analytics_data = {
             'type': 'system_stats',
             'total_users': total_users,
             'total_courses': total_courses,
             'total_enrollments': total_enrollments,
             'completion_rate': round(completion_rate, 1),
-            'avg_engagement': 4.2,  # This would be calculated from user activity
+            'avg_engagement': round(avg_engagement, 1),
+            'total_quiz_results': total_quiz_results,
             'last_updated': datetime.now()
         }
 
@@ -574,3 +559,138 @@ class AnalyticsModel:
         )
 
         return analytics_data
+
+    @staticmethod
+    def update_course_analytics(course_id):
+        """Update analytics for a specific course"""
+        # Get course enrollments
+        enrollments = EnrollmentModel.get_course_enrollments(course_id)
+        total_enrollments = len(enrollments)
+
+        if total_enrollments == 0:
+            return None
+
+        # Calculate completion rate
+        completed = sum(1 for e in enrollments if e.get('progress', 0) == 100)
+        completion_rate = (completed / total_enrollments * 100)
+
+        # Calculate average progress
+        avg_progress = sum(e.get('progress', 0) for e in enrollments) / total_enrollments
+
+        # Get quiz results for this course
+        quiz_results = QuizResultModel.get_course_results(course_id)
+        avg_score = sum(r.get('score_percentage', 0) for r in quiz_results) / len(quiz_results) if quiz_results else 0
+
+        analytics_data = {
+            'type': 'course_performance',
+            'course_id': course_id,
+            'total_enrollments': total_enrollments,
+            'completion_rate': round(completion_rate, 1),
+            'avg_progress': round(avg_progress, 1),
+            'avg_score': round(avg_score, 1),
+            'total_quiz_attempts': len(quiz_results),
+            'last_updated': datetime.now()
+        }
+
+        analytics_collection.update_one(
+            {'type': 'course_performance', 'course_id': course_id},
+            {'$set': analytics_data},
+            upsert=True
+        )
+
+        return analytics_data
+
+    @staticmethod
+    def get_user_analytics(user_id):
+        """Get analytics for a specific user"""
+        # Get user enrollments
+        enrollments = EnrollmentModel.get_user_enrollments(user_id)
+
+        # Get user quiz results
+        quiz_results = QuizResultModel.get_user_results(user_id)
+
+        # Calculate user statistics
+        total_courses = len(enrollments)
+        completed_courses = sum(1 for e in enrollments if e.get('progress', 0) == 100)
+        avg_progress = sum(e.get('progress', 0) for e in enrollments) / total_courses if total_courses > 0 else 0
+        avg_quiz_score = sum(r.get('score_percentage', 0) for r in quiz_results) / len(
+            quiz_results) if quiz_results else 0
+
+        return {
+            'user_id': user_id,
+            'total_courses': total_courses,
+            'completed_courses': completed_courses,
+            'avg_progress': round(avg_progress, 1),
+            'total_quizzes': len(quiz_results),
+            'avg_quiz_score': round(avg_quiz_score, 1),
+            'last_updated': datetime.now()
+        }
+
+
+# Additional utility functions
+def convert_objectid_to_str(data):
+    """Convert ObjectId to string in a document or list of documents"""
+    if isinstance(data, list):
+        return [convert_objectid_to_str(item) for item in data]
+    elif isinstance(data, dict):
+        converted = {}
+        for key, value in data.items():
+            if isinstance(value, ObjectId):
+                converted[key] = str(value)
+            elif isinstance(value, dict):
+                converted[key] = convert_objectid_to_str(value)
+            elif isinstance(value, list):
+                converted[key] = convert_objectid_to_str(value)
+            else:
+                converted[key] = value
+        return converted
+    else:
+        return data
+
+
+def create_indexes():
+    """Create database indexes for better performance"""
+    try:
+        # User indexes
+        users_collection.create_index("email", unique=True)
+        users_collection.create_index("role")
+
+        # Course indexes
+        courses_collection.create_index("instructor_id")
+        courses_collection.create_index("status")
+        courses_collection.create_index("level")
+        courses_collection.create_index("category")
+        courses_collection.create_index("created_at")
+
+        # Module indexes
+        modules_collection.create_index("course_id")
+        modules_collection.create_index([("course_id", 1), ("order", 1)])
+
+        # Enrollment indexes
+        enrollments_collection.create_index([("user_id", 1), ("course_id", 1)], unique=True)
+        enrollments_collection.create_index("user_id")
+        enrollments_collection.create_index("course_id")
+
+        # Quiz result indexes
+        quiz_results_collection.create_index("user_id")
+        quiz_results_collection.create_index("quiz_id")
+        quiz_results_collection.create_index("course_id")
+        quiz_results_collection.create_index([("user_id", 1), ("quiz_id", 1)])
+
+        # Leaderboard indexes
+        leaderboard_collection.create_index([("course_id", 1), ("average_score", -1)])
+        leaderboard_collection.create_index([("user_id", 1), ("course_id", 1)], unique=True)
+
+        # Analytics indexes
+        analytics_collection.create_index("type")
+        analytics_collection.create_index([("type", 1), ("course_id", 1)])
+
+        print("✅ Database indexes created successfully")
+
+    except Exception as e:
+        print(f"⚠️ Warning: Could not create some indexes: {e}")
+
+
+# Initialize indexes when module is imported
+if __name__ == "__main__":
+    create_indexes()
