@@ -32,7 +32,7 @@ app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
 # Initialize system monitor with your MongoDB configuration
 system_monitor = initialize_system_monitor(
     mongo_uri=app.config.get('MONGO_URI'),
-    db_name='headway_elearning'
+    db_name='HEADWAY_MAIN'
 )
 
 
@@ -751,32 +751,109 @@ def educator_analytics():
     user = get_current_user()
     user_id = str(user['_id'])
 
+    # Get filter parameters
+    time_filter = request.args.get('time_filter', 'all_time')
+    sort_by = request.args.get('sort_by', 'enrollment_desc')
+
     # Get educator's courses
     educator_courses = CourseModel.get_courses_by_instructor(user_id)
 
     # Get analytics for each course
     course_analytics = []
+    total_students = 0
+    total_courses = len(educator_courses)
+    total_revenue = 0  # Placeholder for future implementation
+
     for course in educator_courses:
         course_id = str(course['_id'])
-        analytics = AnalyticsModel.get_course_analytics(course_id)
 
-        if not analytics:
-            # Create default analytics if none exist
-            analytics = {
-                'completion_rate': 0,
-                'avg_score': 0,
-                'engagement_rate': 0,
-                'total_time': '0 hours'
-            }
+        # Get course enrollments
+        enrollments = EnrollmentModel.get_course_enrollments(course_id)
+        course_students = len(enrollments)
+        total_students += course_students
+
+        # Calculate completion rate
+        completed_students = len([e for e in enrollments if e.get('progress', 0) >= 100])
+        completion_rate = (completed_students / course_students * 100) if course_students > 0 else 0
+
+        # Calculate average progress
+        avg_progress = sum(e.get('progress', 0) for e in enrollments) / course_students if course_students > 0 else 0
+
+        # Get quiz results for average score
+        modules = ModuleModel.get_modules_by_course(course_id)
+        all_quiz_results = []
+        for module in modules:
+            quizzes = QuizModel.get_quizzes_by_module(str(module['_id']))
+            for quiz in quizzes:
+                quiz_results = QuizResultModel.get_quiz_results(str(quiz['_id']))
+                all_quiz_results.extend(quiz_results)
+
+        avg_score = sum(r.get('score_percentage', 0) for r in all_quiz_results) / len(
+            all_quiz_results) if all_quiz_results else 0
+
+        # Apply time filter (placeholder - can be enhanced based on enrollment dates)
+        filtered_enrollments = enrollments
+        if time_filter == 'last_30_days':
+            # Filter enrollments from last 30 days
+            from datetime import datetime, timedelta
+            cutoff_date = datetime.now() - timedelta(days=30)
+            filtered_enrollments = [e for e in enrollments if e.get('enrolled_date', datetime.min) >= cutoff_date]
+        elif time_filter == 'last_3_months':
+            from datetime import datetime, timedelta
+            cutoff_date = datetime.now() - timedelta(days=90)
+            filtered_enrollments = [e for e in enrollments if e.get('enrolled_date', datetime.min) >= cutoff_date]
+        elif time_filter == 'last_6_months':
+            from datetime import datetime, timedelta
+            cutoff_date = datetime.now() - timedelta(days=180)
+            filtered_enrollments = [e for e in enrollments if e.get('enrolled_date', datetime.min) >= cutoff_date]
+
+        analytics = {
+            'total_students': len(filtered_enrollments),
+            'completion_rate': completion_rate,
+            'avg_score': round(avg_score, 1),
+            'avg_progress': round(avg_progress, 1),
+            'engagement_rate': min(100, max(0, avg_progress + (completion_rate * 0.3))),  # Calculated metric
+            'quiz_count': len(all_quiz_results),
+            'modules_count': len(modules)
+        }
 
         course_analytics.append({
             'course': convert_objectid_to_str(course),
-            'analytics': analytics
+            'analytics': analytics,
+            'enrollments': len(filtered_enrollments)
         })
+
+    # Sort courses based on sort parameter
+    if sort_by == 'enrollment_desc':
+        course_analytics.sort(key=lambda x: x['enrollments'], reverse=True)
+    elif sort_by == 'enrollment_asc':
+        course_analytics.sort(key=lambda x: x['enrollments'])
+    elif sort_by == 'completion_desc':
+        course_analytics.sort(key=lambda x: x['analytics']['completion_rate'], reverse=True)
+    elif sort_by == 'completion_asc':
+        course_analytics.sort(key=lambda x: x['analytics']['completion_rate'])
+    elif sort_by == 'score_desc':
+        course_analytics.sort(key=lambda x: x['analytics']['avg_score'], reverse=True)
+    elif sort_by == 'score_asc':
+        course_analytics.sort(key=lambda x: x['analytics']['avg_score'])
+
+    # Calculate overall statistics
+    overall_completion = sum(ca['analytics']['completion_rate'] for ca in course_analytics) / len(
+        course_analytics) if course_analytics else 0
+    overall_avg_score = sum(ca['analytics']['avg_score'] for ca in course_analytics) / len(
+        course_analytics) if course_analytics else 0
 
     return render_template('educator/analytics.html',
                            user=convert_objectid_to_str(user),
-                           course_analytics=course_analytics)
+                           course_analytics=course_analytics,
+                           total_students=total_students,
+                           total_courses=total_courses,
+                           overall_completion=round(overall_completion, 1),
+                           overall_avg_score=round(overall_avg_score, 1),
+                           time_filter=time_filter,
+                           sort_by=sort_by)
+
+
 
 
 @app.route('/educator/courses')
@@ -1135,11 +1212,89 @@ def educator_course_analytics(course_id):
                            student_progress=student_progress)
 
 
+@app.route('/educator/analytics/export')
+@role_required(['educator'])
+def educator_export_analytics():
+    """Export all educator analytics as CSV"""
+    user = get_current_user()
+    user_id = str(user['_id'])
+
+    try:
+        # Get educator's courses
+        educator_courses = CourseModel.get_courses_by_instructor(user_id)
+
+        # Create CSV data
+        csv_data = []
+        csv_data.append([
+            'Course Title', 'Level', 'Status', 'Total Students', 'Completion Rate (%)',
+            'Average Score (%)', 'Average Progress (%)', 'Total Modules', 'Quiz Count',
+            'Created Date', 'Last Updated'
+        ])
+
+        for course in educator_courses:
+            course_id = str(course['_id'])
+
+            # Get course statistics
+            enrollments = EnrollmentModel.get_course_enrollments(course_id)
+            course_students = len(enrollments)
+            completed_students = len([e for e in enrollments if e.get('progress', 0) >= 100])
+            completion_rate = (completed_students / course_students * 100) if course_students > 0 else 0
+            avg_progress = sum(
+                e.get('progress', 0) for e in enrollments) / course_students if course_students > 0 else 0
+
+            # Get modules and quizzes
+            modules = ModuleModel.get_modules_by_course(course_id)
+            all_quiz_results = []
+            for module in modules:
+                quizzes = QuizModel.get_quizzes_by_module(str(module['_id']))
+                for quiz in quizzes:
+                    quiz_results = QuizResultModel.get_quiz_results(str(quiz['_id']))
+                    all_quiz_results.extend(quiz_results)
+
+            avg_score = sum(r.get('score_percentage', 0) for r in all_quiz_results) / len(
+                all_quiz_results) if all_quiz_results else 0
+
+            csv_data.append([
+                course.get('title', 'N/A'),
+                course.get('level', 'N/A'),
+                course.get('status', 'N/A'),
+                course_students,
+                round(completion_rate, 2),
+                round(avg_score, 2),
+                round(avg_progress, 2),
+                len(modules),
+                len(all_quiz_results),
+                course.get('created_at', 'Unknown'),
+                course.get('updated_at', 'Unknown')
+            ])
+
+        # Create CSV response
+        import io
+        import csv
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerows(csv_data)
+
+        # Create response
+        from flask import Response
+        response = Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment; filename=educator_analytics_report.csv'}
+        )
+
+        return response
+
+    except Exception as e:
+        print(f"Error exporting analytics: {e}")
+        flash('An error occurred while exporting analytics.', 'error')
+        return redirect(url_for('educator_analytics'))
+
 # Optional: Export analytics route
 @app.route('/educator/course/<course_id>/analytics/export')
 @role_required(['educator'])
-def educator_export_analytics(course_id):
-    """Export course analytics as CSV"""
+def educator_export_course_analytics(course_id):
+    """Export individual course analytics as CSV"""
     user = get_current_user()
 
     # Get course and verify ownership
@@ -1149,23 +1304,42 @@ def educator_export_analytics(course_id):
         return redirect(url_for('educator_courses'))
 
     try:
-        # Get enrolled students with progress
+        # Get enrolled students with detailed progress
         enrollments = EnrollmentModel.get_course_enrollments(course_id)
 
-        # Create CSV data
+        # Create detailed CSV data
         csv_data = []
-        csv_data.append(['Student Name', 'Email', 'Progress (%)', 'Grade', 'Enrolled Date', 'Last Activity'])
+        csv_data.append([
+            'Student Name', 'Email', 'Progress (%)', 'Grade', 'Enrolled Date',
+            'Last Activity', 'Modules Completed', 'Quiz Attempts', 'Average Quiz Score (%)'
+        ])
 
         for enrollment in enrollments:
             student = UserModel.find_user_by_id(enrollment['user_id'])
             if student:
+                # Get student quiz results
+                modules = ModuleModel.get_modules_by_course(course_id)
+                student_quiz_results = []
+                for module in modules:
+                    quizzes = QuizModel.get_quizzes_by_module(str(module['_id']))
+                    for quiz in quizzes:
+                        results = QuizResultModel.find_result(enrollment['user_id'], str(quiz['_id']))
+                        if results:
+                            student_quiz_results.append(results)
+
+                avg_quiz_score = sum(r.get('score_percentage', 0) for r in student_quiz_results) / len(
+                    student_quiz_results) if student_quiz_results else 0
+
                 csv_data.append([
                     student['name'],
                     student['email'],
                     enrollment.get('progress', 0),
                     enrollment.get('grade', 'N/A'),
                     enrollment.get('enrolled_date', 'Unknown'),
-                    enrollment.get('last_activity', 'No recent activity')
+                    enrollment.get('last_activity', 'No recent activity'),
+                    len(enrollment.get('completed_modules', [])),
+                    len(student_quiz_results),
+                    round(avg_quiz_score, 2)
                 ])
 
         # Create CSV response
@@ -1180,16 +1354,89 @@ def educator_export_analytics(course_id):
         response = Response(
             output.getvalue(),
             mimetype='text/csv',
-            headers={'Content-Disposition': f'attachment; filename={course["title"]}_analytics.csv'}
+            headers={'Content-Disposition': f'attachment; filename={course["title"]}_detailed_analytics.csv'}
         )
 
         return response
 
     except Exception as e:
-        print(f"Error exporting analytics: {e}")
-        flash('An error occurred while exporting analytics.', 'error')
-        return redirect(url_for('educator_course_analytics', course_id=course_id))
+        print(f"Error exporting course analytics: {e}")
+        flash('An error occurred while exporting course analytics.', 'error')
+        return redirect(url_for('educator_analytics'))
 
+
+# API endpoint for dynamic filtering (AJAX)
+@app.route('/api/educator/analytics/filter')
+@role_required(['educator'])
+def api_educator_analytics_filter():
+    """API endpoint for filtering analytics data"""
+    user = get_current_user()
+    user_id = str(user['_id'])
+
+    time_filter = request.args.get('time_filter', 'all_time')
+    sort_by = request.args.get('sort_by', 'enrollment_desc')
+
+    try:
+        # Get educator's courses
+        educator_courses = CourseModel.get_courses_by_instructor(user_id)
+
+        # Get analytics for each course (similar to main analytics route)
+        course_analytics = []
+        for course in educator_courses:
+            course_id = str(course['_id'])
+            enrollments = EnrollmentModel.get_course_enrollments(course_id)
+
+            # Apply time filter
+            filtered_enrollments = enrollments
+            if time_filter == 'last_30_days':
+                from datetime import datetime, timedelta
+                cutoff_date = datetime.now() - timedelta(days=30)
+                filtered_enrollments = [e for e in enrollments if e.get('enrolled_date', datetime.min) >= cutoff_date]
+            elif time_filter == 'last_3_months':
+                from datetime import datetime, timedelta
+                cutoff_date = datetime.now() - timedelta(days=90)
+                filtered_enrollments = [e for e in enrollments if e.get('enrolled_date', datetime.min) >= cutoff_date]
+            elif time_filter == 'last_6_months':
+                from datetime import datetime, timedelta
+                cutoff_date = datetime.now() - timedelta(days=180)
+                filtered_enrollments = [e for e in enrollments if e.get('enrolled_date', datetime.min) >= cutoff_date]
+
+            # Calculate metrics
+            course_students = len(filtered_enrollments)
+            completed_students = len([e for e in filtered_enrollments if e.get('progress', 0) >= 100])
+            completion_rate = (completed_students / course_students * 100) if course_students > 0 else 0
+            avg_progress = sum(
+                e.get('progress', 0) for e in filtered_enrollments) / course_students if course_students > 0 else 0
+
+            course_analytics.append({
+                'course_id': course_id,
+                'course_title': course['title'],
+                'total_students': course_students,
+                'completion_rate': round(completion_rate, 1),
+                'avg_progress': round(avg_progress, 1)
+            })
+
+        # Sort based on sort_by parameter
+        if sort_by == 'enrollment_desc':
+            course_analytics.sort(key=lambda x: x['total_students'], reverse=True)
+        elif sort_by == 'enrollment_asc':
+            course_analytics.sort(key=lambda x: x['total_students'])
+        elif sort_by == 'completion_desc':
+            course_analytics.sort(key=lambda x: x['completion_rate'], reverse=True)
+        elif sort_by == 'completion_asc':
+            course_analytics.sort(key=lambda x: x['completion_rate'])
+
+        return jsonify({
+            'success': True,
+            'data': course_analytics
+        })
+
+    except Exception as e:
+        print(f"Error filtering analytics: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'An error occurred while filtering analytics data'
+        }), 500
 
 @app.route('/educator/course/<course_id>/module/create', methods=['POST'])
 @role_required(['educator'])
@@ -1309,123 +1556,6 @@ def educator_edit_module_post(module_id):
             flash('An error occurred while updating the module.', 'error')
             return redirect(url_for('educator_edit_module', module_id=module_id))
 
-
-@app.route('/educator/module/<module_id>/duplicate', methods=['POST'])
-@role_required(['educator'])
-def educator_duplicate_module(module_id):
-    """Duplicate a module"""
-    user = get_current_user()
-
-    # Get module
-    module = ModuleModel.find_module_by_id(module_id)
-    if not module:
-        return jsonify({'success': False, 'message': 'Module not found'}), 404
-
-    # Get course and verify ownership
-    course = CourseModel.find_course_by_id(module['course_id'])
-    if not course or course['instructor_id'] != str(user['_id']):
-        return jsonify({'success': False, 'message': 'Access denied'}), 403
-
-    try:
-        # Create duplicate module data
-        duplicate_data = module.copy()
-        duplicate_data.pop('_id', None)  # Remove original ID
-        duplicate_data['title'] = f"{module['title']} (Copy)"
-        duplicate_data['created_at'] = datetime.now()
-        duplicate_data['completed_by'] = []
-
-        # Get next order number
-        existing_modules = ModuleModel.get_modules_by_course(module['course_id'])
-        duplicate_data['order'] = len(existing_modules) + 1
-
-        # Create duplicate module
-        new_module_id = ModuleModel.create_module(duplicate_data)
-
-        return jsonify({'success': True, 'message': 'Module duplicated successfully'})
-
-    except Exception as e:
-        print(f"Error duplicating module: {e}")
-        return jsonify({'success': False, 'message': 'An error occurred while duplicating the module'}), 500
-
-
-@app.route('/educator/module/<module_id>/delete', methods=['DELETE'])
-@role_required(['educator'])
-def educator_delete_module(module_id):
-    """Delete a module"""
-    user = get_current_user()
-
-    # Get module
-    module = ModuleModel.find_module_by_id(module_id)
-    if not module:
-        return jsonify({'success': False, 'message': 'Module not found'}), 404
-
-    # Get course and verify ownership
-    course = CourseModel.find_course_by_id(module['course_id'])
-    if not course or course['instructor_id'] != str(user['_id']):
-        return jsonify({'success': False, 'message': 'Access denied'}), 403
-
-    try:
-        # Delete related quizzes first
-        quizzes = QuizModel.get_quizzes_by_module(module_id)
-        for quiz in quizzes:
-            QuizModel.delete_quiz(str(quiz['_id']))
-
-        # Delete module
-        ModuleModel.delete_module(module_id)
-
-        return jsonify({'success': True, 'message': 'Module deleted successfully'})
-
-    except Exception as e:
-        print(f"Error deleting module: {e}")
-        return jsonify({'success': False, 'message': 'An error occurred while deleting the module'}), 500
-
-
-@app.route('/educator/module/<module_id>/analytics')
-@role_required(['educator'])
-def educator_module_analytics(module_id):
-    """View module analytics"""
-    user = get_current_user()
-
-    # Get module
-    module = ModuleModel.find_module_by_id(module_id)
-    if not module:
-        flash('Module not found!', 'error')
-        return redirect(url_for('educator_courses'))
-
-    # Get course and verify ownership
-    course = CourseModel.find_course_by_id(module['course_id'])
-    if not course or course['instructor_id'] != str(user['_id']):
-        flash('Course not found or access denied!', 'error')
-        return redirect(url_for('educator_courses'))
-
-    # Get module completion stats
-    total_students = len(EnrollmentModel.get_course_enrollments(course['_id']))
-    completed_students = len(module.get('completed_by', []))
-    completion_rate = (completed_students / total_students * 100) if total_students > 0 else 0
-
-    # Get quiz results if module has quizzes
-    quiz_results = []
-    quizzes = QuizModel.get_quizzes_by_module(module_id)
-    for quiz in quizzes:
-        results = QuizResultModel.get_quiz_results(str(quiz['_id']))
-        quiz_results.extend(results)
-
-    analytics_data = {
-        'total_students': total_students,
-        'completed_students': completed_students,
-        'completion_rate': completion_rate,
-        'quiz_results': quiz_results,
-        'avg_quiz_score': sum(r.get('score_percentage', 0) for r in quiz_results) / len(
-            quiz_results) if quiz_results else 0
-    }
-
-    return render_template('educator/module_analytics.html',
-                           user=convert_objectid_to_str(user),
-                           course=convert_objectid_to_str(course),
-                           module=convert_objectid_to_str(module),
-                           analytics=analytics_data)
-
-
 @app.route('/educator/course/<course_id>/export')
 @role_required(['educator'])
 def educator_export_course_reports(course_id):
@@ -1487,6 +1617,363 @@ def educator_student_details(student_id):
     """View student details (placeholder for future implementation)"""
     flash('Student details view will be implemented in a future update.', 'info')
     return redirect(url_for('educator_courses'))
+
+
+@app.route('/educator/edit-module/<module_id>')
+@role_required(['educator'])
+def educator_edit_module_page(module_id):  # RENAMED FUNCTION
+    """Show edit module page"""
+    user = get_current_user()
+
+    # Get module
+    module = ModuleModel.find_module_by_id(module_id)
+    if not module:
+        flash('Module not found!', 'error')
+        return redirect(url_for('educator_courses'))
+
+    # Get course and verify ownership
+    course = CourseModel.find_course_by_id(module['course_id'])
+    if not course or course['instructor_id'] != str(user['_id']):
+        flash('Course not found or access denied!', 'error')
+        return redirect(url_for('educator_courses'))
+
+    return render_template('educator/edit_module.html',
+                           user=convert_objectid_to_str(user),
+                           course=convert_objectid_to_str(course),
+                           module=convert_objectid_to_str(module))
+
+
+@app.route('/educator/edit-module/<module_id>', methods=['POST'])
+@role_required(['educator'])
+def educator_edit_module_submit(module_id):  # RENAMED FUNCTION
+    """Update module"""
+    user = get_current_user()
+
+    # Get module
+    module = ModuleModel.find_module_by_id(module_id)
+    if not module:
+        if request.is_json:
+            return jsonify({'success': False, 'message': 'Module not found'}), 404
+        else:
+            flash('Module not found!', 'error')
+            return redirect(url_for('educator_courses'))
+
+    # Get course and verify ownership
+    course = CourseModel.find_course_by_id(module['course_id'])
+    if not course or course['instructor_id'] != str(user['_id']):
+        if request.is_json:
+            return jsonify({'success': False, 'message': 'Access denied'}), 403
+        else:
+            flash('Course not found or access denied!', 'error')
+            return redirect(url_for('educator_courses'))
+
+    try:
+        # Get form data
+        update_data = {
+            'title': request.form.get('title', '').strip(),
+            'content': request.form.get('content', '').strip(),
+            'type': request.form.get('type', 'lesson'),
+            'duration': request.form.get('duration', '').strip(),
+            'order': int(request.form.get('order', module.get('order', 1))),
+            'prerequisites': request.form.get('prerequisites', '').strip(),
+            'objectives': request.form.get('objectives', '').strip(),
+            'video_url': request.form.get('video_url', '').strip(),
+            'resources': request.form.get('resources', '').strip(),
+            'updated_at': datetime.now()
+        }
+
+        # Validate required fields
+        if not update_data['title'] or not update_data['content']:
+            message = 'Title and content are required'
+            if request.is_json:
+                return jsonify({'success': False, 'message': message}), 400
+            else:
+                flash(message, 'error')
+                return redirect(url_for('educator_edit_module_page', module_id=module_id))
+
+        # Check if saving as draft
+        if request.form.get('save_as_draft'):
+            update_data['status'] = 'draft'
+
+        # Update module
+        ModuleModel.update_module(module_id, update_data)
+
+        message = 'Module updated successfully!'
+        if request.is_json:
+            return jsonify({'success': True, 'message': message})
+        else:
+            flash(message, 'success')
+            return redirect(url_for('educator_course_detail', course_id=course['_id']))
+
+    except Exception as e:
+        print(f"Error updating module: {e}")
+        message = 'An error occurred while updating the module'
+        if request.is_json:
+            return jsonify({'success': False, 'message': message}), 500
+        else:
+            flash(message, 'error')
+            return redirect(url_for('educator_edit_module_page', module_id=module_id))
+
+
+@app.route('/educator/module/<module_id>/analytics')
+@role_required(['educator'])
+def educator_module_analytics_page(module_id):  # RENAMED FUNCTION
+    """View module analytics"""
+    user = get_current_user()
+
+    # Get module
+    module = ModuleModel.find_module_by_id(module_id)
+    if not module:
+        flash('Module not found!', 'error')
+        return redirect(url_for('educator_courses'))
+
+    # Get course and verify ownership
+    course = CourseModel.find_course_by_id(module['course_id'])
+    if not course or course['instructor_id'] != str(user['_id']):
+        flash('Course not found or access denied!', 'error')
+        return redirect(url_for('educator_courses'))
+
+    # Get module completion stats
+    total_students = len(EnrollmentModel.get_course_enrollments(str(course['_id'])))
+    completed_students = len(module.get('completed_by', []))
+    completion_rate = (completed_students / total_students * 100) if total_students > 0 else 0
+
+    # Get quiz results if module has quizzes
+    quiz_results = []
+    try:
+        # Try to get assessments, handle if not implemented
+        if hasattr(AssessmentModel, 'get_assessments_by_module'):
+            assessments = AssessmentModel.get_assessments_by_module(module_id)
+            for quiz in assessments:
+                if hasattr(QuizResultModel, 'get_quiz_results'):
+                    results = QuizResultModel.get_quiz_results(str(quiz['_id']))
+                    quiz_results.extend(results)
+    except Exception as e:
+        print(f"Quiz functionality not available: {e}")
+        quiz_results = []
+
+    analytics_data = {
+        'total_students': total_students,
+        'completed_students': completed_students,
+        'completion_rate': completion_rate,
+        'quiz_results': quiz_results,
+        'avg_quiz_score': sum(r.get('score_percentage', 0) for r in quiz_results) / len(
+            quiz_results) if quiz_results else 0
+    }
+
+    return render_template('educator/module_analytics.html',
+                           user=convert_objectid_to_str(user),
+                           course=convert_objectid_to_str(course),
+                           module=convert_objectid_to_str(module),
+                           analytics=analytics_data)
+
+
+@app.route('/educator/module/<module_id>/duplicate', methods=['POST'])
+@role_required(['educator'])
+def educator_duplicate_module_action(module_id):  # RENAMED FUNCTION
+    """Duplicate a module"""
+    user = get_current_user()
+
+    # Get module
+    module = ModuleModel.find_module_by_id(module_id)
+    if not module:
+        return jsonify({'success': False, 'message': 'Module not found'}), 404
+
+    # Get course and verify ownership
+    course = CourseModel.find_course_by_id(module['course_id'])
+    if not course or course['instructor_id'] != str(user['_id']):
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+
+    try:
+        # Create duplicate module data
+        duplicate_data = module.copy()
+        duplicate_data.pop('_id', None)  # Remove original ID
+        duplicate_data['title'] = f"{module['title']} (Copy)"
+        duplicate_data['created_at'] = datetime.now()
+        duplicate_data['completed_by'] = []
+
+        # Get next order number
+        existing_modules = ModuleModel.get_modules_by_course(module['course_id'])
+        duplicate_data['order'] = len(existing_modules) + 1
+
+        # Create duplicate module
+        new_module_id = ModuleModel.create_module(duplicate_data)
+
+        return jsonify({'success': True, 'message': 'Module duplicated successfully'})
+
+    except Exception as e:
+        print(f"Error duplicating module: {e}")
+        return jsonify({'success': False, 'message': 'An error occurred while duplicating the module'}), 500
+
+
+@app.route('/educator/module/<module_id>/delete', methods=['DELETE'])
+@role_required(['educator'])
+def educator_delete_module_action(module_id):  # RENAMED FUNCTION
+    """Delete a module"""
+    user = get_current_user()
+
+    # Get module
+    module = ModuleModel.find_module_by_id(module_id)
+    if not module:
+        return jsonify({'success': False, 'message': 'Module not found'}), 404
+
+    # Get course and verify ownership
+    course = CourseModel.find_course_by_id(module['course_id'])
+    if not course or course['instructor_id'] != str(user['_id']):
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+
+    try:
+        # Check if module has students who completed it
+        if module.get('completed_by') and len(module['completed_by']) > 0:
+            return jsonify(
+                {'success': False, 'message': 'Cannot delete module that has been completed by students'}), 400
+
+        # Delete related assessments first
+        try:
+            if hasattr(AssessmentModel, 'get_assessments_by_module'):
+                assessments = AssessmentModel.get_assessments_by_module(module_id)
+                for assessment in assessments:
+                    if hasattr(AssessmentModel, 'delete_assessment'):
+                        AssessmentModel.delete_assessment(str(assessment['_id']))
+        except Exception as e:
+            print(f"Assessment cleanup error (non-critical): {e}")
+
+        # Delete module
+        ModuleModel.delete_module(module_id)
+
+        return jsonify({'success': True, 'message': 'Module deleted successfully'})
+
+    except Exception as e:
+        print(f"Error deleting module: {e}")
+        return jsonify({'success': False, 'message': 'An error occurred while deleting the module'}), 500
+
+
+@app.route('/educator/add-module', methods=['POST'])
+@role_required(['educator'])
+def educator_add_module_action():  # RENAMED FUNCTION
+    """Add new module to course"""
+    user = get_current_user()
+
+    try:
+        course_id = request.form.get('course_id')
+
+        # Verify course ownership
+        course = CourseModel.find_course_by_id(course_id)
+        if not course or course['instructor_id'] != str(user['_id']):
+            return jsonify({'success': False, 'message': 'Access denied'}), 403
+
+        # Get existing modules to determine order
+        existing_modules = ModuleModel.get_modules_by_course(course_id)
+        next_order = len(existing_modules) + 1
+
+        # Create module data
+        module_data = {
+            'course_id': course_id,
+            'title': request.form.get('title', '').strip(),
+            'content': request.form.get('content', '').strip(),
+            'type': request.form.get('type', 'lesson'),
+            'duration': request.form.get('duration', '').strip(),
+            'order': next_order,
+            'created_at': datetime.now(),
+            'completed_by': []
+        }
+
+        # Validate required fields
+        if not module_data['title'] or not module_data['content']:
+            return jsonify({'success': False, 'message': 'Title and content are required'}), 400
+
+        # Create module
+        module_id = ModuleModel.create_module(module_data)
+
+        return jsonify({'success': True, 'message': 'Module added successfully', 'module_id': module_id})
+
+    except Exception as e:
+        print(f"Error adding module: {e}")
+        return jsonify({'success': False, 'message': 'An error occurred while adding the module'}), 500
+
+
+@app.route('/educator/module/<module_id>/analytics/export')
+@role_required(['educator'])
+def educator_export_module_analytics_csv(module_id):  # RENAMED FUNCTION
+    """Export module analytics as CSV"""
+    user = get_current_user()
+
+    # Get module
+    module = ModuleModel.find_module_by_id(module_id)
+    if not module:
+        flash('Module not found!', 'error')
+        return redirect(url_for('educator_courses'))
+
+    # Get course and verify ownership
+    course = CourseModel.find_course_by_id(module['course_id'])
+    if not course or course['instructor_id'] != str(user['_id']):
+        flash('Course not found or access denied!', 'error')
+        return redirect(url_for('educator_courses'))
+
+    try:
+        # Get module analytics data
+        total_students = len(EnrollmentModel.get_course_enrollments(str(course['_id'])))
+        completed_students = len(module.get('completed_by', []))
+        completion_rate = (completed_students / total_students * 100) if total_students > 0 else 0
+
+        # Get quiz results
+        quiz_results = []
+        try:
+            if hasattr(AssessmentModel, 'get_assessments_by_module'):
+                assessments = AssessmentModel.get_assessments_by_module(module_id)
+                for assessment in assessments:
+                    if hasattr(QuizResultModel, 'get_quiz_results'):
+                        results = QuizResultModel.get_quiz_results(str(assessment['_id']))
+                        quiz_results.extend(results)
+        except Exception as e:
+            print(f"Quiz results error (non-critical): {e}")
+            quiz_results = []
+
+        # Create CSV data
+        csv_data = []
+        csv_data.append([
+            'Module Title', 'Module Type', 'Total Students', 'Completed Students',
+            'Completion Rate (%)', 'Quiz Attempts', 'Average Quiz Score (%)',
+            'Duration', 'Created Date'
+        ])
+
+        avg_quiz_score = sum(r.get('score_percentage', 0) for r in quiz_results) / len(
+            quiz_results) if quiz_results else 0
+
+        csv_data.append([
+            module.get('title', 'N/A'),
+            module.get('type', 'N/A'),
+            total_students,
+            completed_students,
+            round(completion_rate, 2),
+            len(quiz_results),
+            round(avg_quiz_score, 2),
+            module.get('duration', 'N/A'),
+            module.get('created_at', 'Unknown')
+        ])
+
+        # Create CSV response
+        import io
+        import csv
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerows(csv_data)
+
+        # Create response
+        from flask import Response
+        response = Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment; filename=module_analytics_{module_id}.csv'}
+        )
+
+        return response
+
+    except Exception as e:
+        print(f"Error exporting module analytics: {e}")
+        flash('An error occurred while exporting module analytics.', 'error')
+        return redirect(url_for('educator_module_analytics_page', module_id=module_id))
+
 
 
 # =====================================================

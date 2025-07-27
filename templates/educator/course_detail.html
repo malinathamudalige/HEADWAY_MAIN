@@ -132,15 +132,14 @@
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <i class="fas fa-chart-line text-2xl text-purple-600"></i>
+                        <i class="fas fa-chart-line text-2xl text-yellow-600"></i>
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">Completion Rate</dt>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Avg Progress</dt>
                             <dd class="text-lg font-medium text-gray-900">
-                                {% set completed_students = students|selectattr('progress', 'equalto', 100)|list|length %}
-                                {% if students|length > 0 %}
-                                    {{ "%.1f"|format((completed_students / students|length) * 100) }}%
+                                {% if students %}
+                                    {{ "%.1f"|format((students|sum(attribute='progress')/students|length)) }}%
                                 {% else %}
                                     0%
                                 {% endif %}
@@ -155,56 +154,15 @@
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <i class="fas fa-star text-2xl text-yellow-500"></i>
+                        <i class="fas fa-star text-2xl text-purple-600"></i>
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">Average Rating</dt>
-                            <dd class="text-lg font-medium text-gray-900">{{ course.rating or 0 }}/5.0</dd>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Course Rating</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ course.rating }}/5</dd>
                         </dl>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Quick Actions -->
-    <div class="bg-white shadow rounded-lg mb-8">
-        <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-lg font-medium text-gray-900">Quick Actions</h2>
-        </div>
-        <div class="p-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button @click="showModuleModal = true"
-                        class="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                    <div class="flex items-center">
-                        <i class="fas fa-plus text-blue-600 text-lg mr-3"></i>
-                        <div>
-                            <div class="text-sm font-medium text-gray-900">Add New Module</div>
-                            <div class="text-xs text-gray-500">Create lesson or quiz content</div>
-                        </div>
-                    </div>
-                </button>
-                <button onclick="showMessageModal()"
-                        class="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                    <div class="flex items-center">
-                        <i class="fas fa-envelope text-green-600 text-lg mr-3"></i>
-                        <div>
-                            <div class="text-sm font-medium text-gray-900">Message Students</div>
-                            <div class="text-xs text-gray-500">Send announcement or update</div>
-                        </div>
-                    </div>
-                </button>
-                <button @click="exportReports()"
-                        class="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                    <div class="flex items-center">
-                        <i class="fas fa-download text-purple-600 text-lg mr-3"></i>
-                        <div>
-                            <div class="text-sm font-medium text-gray-900">Export Reports</div>
-                            <div class="text-xs text-gray-500">Download student progress data</div>
-                        </div>
-                    </div>
-                </button>
             </div>
         </div>
     </div>
@@ -246,7 +204,7 @@
                         </div>
                         <div class="flex items-center space-x-2">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {{ module.completed_by|length }} completed
+                                {{ module.completed_by|length if module.completed_by else 0 }} completed
                             </span>
                             <div x-data="{ dropdownOpen: false }" class="relative">
                                 <button @click="dropdownOpen = !dropdownOpen"
@@ -258,14 +216,14 @@
                                      x-transition
                                      class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
                                     <div class="py-1">
-                                        <a href="{{ url_for('educator_edit_module', module_id=module._id) }}"
-                                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <button @click="editModule('{{ module._id }}')"
+                                                class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                             <i class="fas fa-edit mr-2"></i>Edit Module
-                                        </a>
-                                        <a href="{{ url_for('educator_module_analytics', module_id=module._id) }}"
-                                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        </button>
+                                        <button @click="viewModuleAnalytics('{{ module._id }}')"
+                                                class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                             <i class="fas fa-chart-bar mr-2"></i>View Analytics
-                                        </a>
+                                        </button>
                                         <button @click="duplicateModule('{{ module._id }}')"
                                                 class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                             <i class="fas fa-copy mr-2"></i>Duplicate
@@ -283,39 +241,37 @@
                 </div>
                 {% endfor %}
             {% else %}
-                <div class="p-8 text-center">
-                    <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-book-open text-gray-400 text-2xl"></i>
-                    </div>
-                    <h3 class="text-lg font-medium text-gray-900">No modules yet</h3>
-                    <p class="text-gray-500 mt-2">Get started by adding your first module to this course.</p>
-                    <div class="mt-6">
-                        <button @click="showModuleModal = true"
-                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700">
-                            <i class="fas fa-plus mr-2"></i>
-                            Add First Module
-                        </button>
-                    </div>
-                </div>
+            <div class="px-6 py-12 text-center">
+                <i class="fas fa-book-open text-4xl text-gray-400 mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No Modules Yet</h3>
+                <p class="text-gray-500 mb-4">Get started by creating your first module for this course.</p>
+                <button @click="addNewModule()"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700">
+                    <i class="fas fa-plus mr-2"></i>
+                    Create First Module
+                </button>
+            </div>
             {% endif %}
         </div>
     </div>
 
     <!-- Enrolled Students -->
-    <div class="bg-white shadow rounded-lg">
-        <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-lg font-medium text-gray-900">Enrolled Students</h2>
+    <div class="bg-white shadow rounded-lg mb-8">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 class="text-lg font-medium text-gray-900">Enrolled Students ({{ students|length }})</h2>
+            <div class="flex space-x-3">
+            </div>
         </div>
         <div class="overflow-hidden">
             {% if students %}
+            <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grade</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Enrolled Date</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -323,8 +279,10 @@
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
-                                    <div class="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
-                                        <span class="text-sm font-medium text-gray-700">{{ student.name[0] }}</span>
+                                    <div class="flex-shrink-0 h-10 w-10">
+                                        <div class="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
+                                            <span class="text-sm font-medium text-white">{{ student.name[:2].upper() }}</span>
+                                        </div>
                                     </div>
                                     <div class="ml-4">
                                         <div class="text-sm font-medium text-gray-900">{{ student.name }}</div>
@@ -334,44 +292,49 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center">
-                                    <div class="w-16 mr-3">
-                                        <div class="text-sm text-gray-900">{{ student.progress }}%</div>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="bg-primary h-2 rounded-full" style="width: {{ student.progress }}%"></div>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between text-sm text-gray-600 mb-1">
+                                            <span>{{ student.progress }}%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-primary h-2 rounded-full" style="width: {{ student.progress }}%"></div>
+                                        </div>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                {% if student.grade %}
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                        {{ student.grade }}
-                                    </span>
-                                {% else %}
-                                    <span class="text-sm text-gray-500">-</span>
-                                {% endif %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    {% if student.grade == 'A' or student.grade == 'A+' %}bg-green-100 text-green-800
+                                    {% elif student.grade == 'B' or student.grade == 'B+' %}bg-blue-100 text-blue-800
+                                    {% elif student.grade == 'C' or student.grade == 'C+' %}bg-yellow-100 text-yellow-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ student.grade or 'Not graded' }}
+                                </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {{ student.enrolled_date.strftime('%b %d, %Y') if student.enrolled_date else 'Unknown' }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <button onclick="viewStudentDetails('{{ student._id }}')"
-                                        class="text-indigo-600 hover:text-indigo-900 mr-3">View</button>
-                                <button onclick="messageStudent('{{ student._id }}')"
-                                        class="text-green-600 hover:text-green-900">Message</button>
+                                <div x-data="{ dropdownOpen: false }" class="relative">
+                                    <button @click="dropdownOpen = !dropdownOpen"
+                                            class="text-gray-400 hover:text-gray-600">
+                                        </div>
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
             {% else %}
-                <div class="p-8 text-center">
-                    <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-users text-gray-400 text-2xl"></i>
-                    </div>
-                    <h3 class="text-lg font-medium text-gray-900">No students enrolled</h3>
-                    <p class="text-gray-500 mt-2">Students will appear here once they enroll in your course.</p>
+            <div class="p-8 text-center">
+                <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-user-plus text-gray-400 text-2xl"></i>
                 </div>
+                <h3 class="text-lg font-medium text-gray-900">No students enrolled yet</h3>
+                <p class="text-gray-500 mt-2">Students will appear here once they enroll in your course.</p>
+            </div>
             {% endif %}
         </div>
     </div>
@@ -384,77 +347,50 @@
          x-transition:leave="ease-in duration-200"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
-         class="fixed inset-0 z-50 overflow-y-auto"
+         class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
          style="display: none;">
-        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div x-show="showModuleModal"
-                 x-transition:enter="ease-out duration-300"
-                 x-transition:enter-start="opacity-0"
-                 x-transition:enter-end="opacity-100"
-                 x-transition:leave="ease-in duration-200"
-                 x-transition:leave-start="opacity-100"
-                 x-transition:leave-end="opacity-0"
-                 class="fixed inset-0 transition-opacity">
-                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
-            </div>
-
-            <div x-show="showModuleModal"
-                 x-transition:enter="ease-out duration-300"
-                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
-                 x-transition:leave="ease-in duration-200"
-                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
-                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                 class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-
-                <form @submit.prevent="createModule()" id="moduleForm">
-                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                        <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Add New Module</h3>
-                        <div class="space-y-4">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Add New Module</h3>
+                <form @submit.prevent="createModule()">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Module Title</label>
+                            <input type="text" x-model="moduleData.title" required
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Content</label>
+                            <textarea x-model="moduleData.content" rows="3" required
+                                      class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"></textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Module Title *</label>
-                                <input type="text"
-                                       x-model="moduleData.title"
-                                       required
-                                       class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
-                                       placeholder="Enter module title">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Module Type *</label>
-                                <select x-model="moduleData.type"
-                                        required
+                                <label class="block text-sm font-medium text-gray-700">Type</label>
+                                <select x-model="moduleData.type" required
                                         class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
                                     <option value="lesson">Lesson</option>
                                     <option value="quiz">Quiz</option>
                                     <option value="assignment">Assignment</option>
+                                    <option value="video">Video</option>
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Duration</label>
-                                <input type="text"
-                                       x-model="moduleData.duration"
+                                <input type="text" x-model="moduleData.duration"
                                        class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
-                                       placeholder="e.g., 45 minutes">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">Content/Description</label>
-                                <textarea rows="3"
-                                          x-model="moduleData.content"
-                                          class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
-                                          placeholder="Module content or description..."></textarea>
+                                       placeholder="e.g., 30 minutes">
                             </div>
                         </div>
                     </div>
-                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                        <button type="submit"
-                                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary text-base font-medium text-white hover:bg-blue-700 sm:ml-3 sm:w-auto sm:text-sm">
-                            <i class="fas fa-plus mr-2"></i>
-                            Create Module
-                        </button>
-                        <button type="button"
-                                @click="showModuleModal = false"
-                                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button type="button" @click="showModuleModal = false"
+                                class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
                             Cancel
+                        </button>
+                        <button type="submit"
+                                class="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-primary hover:bg-blue-700">
+                            Add Module
                         </button>
                     </div>
                 </form>
@@ -467,6 +403,7 @@
 function courseDetailPage() {
     return {
         showModuleModal: false,
+        loading: false,
         moduleData: {
             title: '',
             type: 'lesson',
@@ -474,35 +411,142 @@ function courseDetailPage() {
             content: ''
         },
 
-        createModule() {
+        // Add new module
+        addNewModule() {
+            this.resetModuleForm();
+            this.showModuleModal = true;
+        },
+
+        // Create module
+        async createModule() {
             if (!this.moduleData.title.trim()) {
-                alert('Module title is required');
+                this.showNotification('Module title is required', 'error');
                 return;
             }
 
-            // Send request to create module
-            fetch(`/educator/course/{{ course._id }}/module/create`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(this.moduleData)
-            })
-            .then(response => response.json())
-            .then(data => {
+            if (!this.moduleData.content.trim()) {
+                this.showNotification('Module content is required', 'error');
+                return;
+            }
+
+            this.loading = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('title', this.moduleData.title);
+                formData.append('content', this.moduleData.content);
+                formData.append('type', this.moduleData.type);
+                formData.append('duration', this.moduleData.duration);
+                formData.append('course_id', '{{ course._id }}');
+
+                const response = await fetch('{{ url_for("educator_add_module_action") }}', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
                 if (data.success) {
                     this.showModuleModal = false;
                     this.resetModuleForm();
-                    location.reload(); // Refresh to show new module
+                    this.showNotification('Module added successfully!', 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
                 } else {
-                    alert('Error creating module: ' + data.message);
+                    this.showNotification(data.message || 'Failed to add module', 'error');
                 }
-            })
-            .catch(error => {
-                alert('Error creating module: ' + error);
-            });
+            } catch (error) {
+                console.error('Error creating module:', error);
+                this.showNotification('An error occurred while adding the module', 'error');
+            } finally {
+                this.loading = false;
+            }
         },
 
+        // Edit module - CORRECTED: Use existing route pattern
+        editModule(moduleId) {
+            console.log('Editing module:', moduleId);
+            window.location.href = `/educator/edit-module/${moduleId}`;
+        },
+
+        // View module analytics - CORRECTED: Use existing route pattern
+        viewModuleAnalytics(moduleId) {
+            console.log('Viewing analytics for module:', moduleId);
+            window.location.href = `/educator/module/${moduleId}/analytics`;
+        },
+
+        // Duplicate module - CORRECTED: Use existing route pattern
+        async duplicateModule(moduleId) {
+            if (!confirm('Are you sure you want to duplicate this module?')) {
+                return;
+            }
+
+            this.loading = true;
+
+            try {
+                // Use existing duplicate route
+                const response = await fetch(`/educator/module/${moduleId}/duplicate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.showNotification('Module duplicated successfully!', 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    this.showNotification(data.message || 'Failed to duplicate module', 'error');
+                }
+            } catch (error) {
+                console.error('Error duplicating module:', error);
+                this.showNotification('An error occurred while duplicating the module', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // Delete module - CORRECTED: Use existing route pattern
+        async deleteModule(moduleId, moduleTitle) {
+            if (!confirm(`Are you sure you want to delete "${moduleTitle}"? This action cannot be undone.`)) {
+                return;
+            }
+
+            this.loading = true;
+
+            try {
+                // Use existing delete route
+                const response = await fetch(`/educator/module/${moduleId}/delete`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.showNotification('Module deleted successfully!', 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    this.showNotification(data.message || 'Failed to delete module', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting module:', error);
+                this.showNotification('An error occurred while deleting the module', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        // Reset module form
         resetModuleForm() {
             this.moduleData = {
                 title: '',
@@ -512,56 +556,47 @@ function courseDetailPage() {
             };
         },
 
-        duplicateModule(moduleId) {
-            if (confirm('Are you sure you want to duplicate this module?')) {
-                fetch(`/educator/module/${moduleId}/duplicate`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        alert('Error duplicating module: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    alert('Error duplicating module: ' + error);
-                });
-            }
-        },
+        // Show notification
+        showNotification(message, type) {
+            // Remove existing notifications
+            const existingNotifications = document.querySelectorAll('.notification-toast');
+            existingNotifications.forEach(notification => notification.remove());
 
-        deleteModule(moduleId, moduleTitle) {
-            if (confirm(`Are you sure you want to delete "${moduleTitle}"? This action cannot be undone.`)) {
-                fetch(`/educator/module/${moduleId}/delete`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        alert('Error deleting module: ' + data.message);
-                    }
-                })
-                .catch(error => {
-                    alert('Error deleting module: ' + error);
-                });
-            }
-        },
+            // Create new notification
+            const notificationDiv = document.createElement('div');
+            notificationDiv.className = `notification-toast fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg transition-all duration-300 transform ${type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`;
+            notificationDiv.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} mr-3"></i>
+                    <span class="flex-1">${message}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-gray-500 hover:text-gray-700 focus:outline-none">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
 
-        exportReports() {
-            // Generate and download course reports
-            window.open(`/educator/course/{{ course._id }}/export`, '_blank');
+            document.body.appendChild(notificationDiv);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (notificationDiv.parentElement) {
+                    notificationDiv.style.opacity = '0';
+                    notificationDiv.style.transform = 'translateX(100%)';
+                    setTimeout(() => {
+                        if (notificationDiv.parentElement) {
+                            notificationDiv.remove();
+                        }
+                    }, 300);
+                }
+            }, 5000);
         }
     }
 }
+
+// Initialize Alpine.js data
+document.addEventListener('alpine:init', () => {
+    Alpine.data('courseDetail', courseDetailPage);
+});
 </script>
 
 {% endblock %}

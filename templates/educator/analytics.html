@@ -12,13 +12,26 @@
             <p class="mt-2 text-gray-600">Track performance and engagement across your courses</p>
         </div>
         <div class="flex space-x-3">
-            <select class="border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm">
-                <option>Last 30 Days</option>
-                <option>Last 3 Months</option>
-                <option>Last 6 Months</option>
-                <option>All Time</option>
+            <!-- Time Filter Dropdown -->
+            <select id="timeFilter" onchange="filterAnalytics()" class="border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm">
+                <option value="all_time" {{ 'selected' if time_filter == 'all_time' }}>All Time</option>
+                <option value="last_30_days" {{ 'selected' if time_filter == 'last_30_days' }}>Last 30 Days</option>
+                <option value="last_3_months" {{ 'selected' if time_filter == 'last_3_months' }}>Last 3 Months</option>
+                <option value="last_6_months" {{ 'selected' if time_filter == 'last_6_months' }}>Last 6 Months</option>
             </select>
-            <button class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+
+            <!-- Sort Dropdown -->
+            <select id="sortBy" onchange="filterAnalytics()" class="border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm">
+                <option value="enrollment_desc" {{ 'selected' if sort_by == 'enrollment_desc' }}>Most Students</option>
+                <option value="enrollment_asc" {{ 'selected' if sort_by == 'enrollment_asc' }}>Least Students</option>
+                <option value="completion_desc" {{ 'selected' if sort_by == 'completion_desc' }}>Highest Completion</option>
+                <option value="completion_asc" {{ 'selected' if sort_by == 'completion_asc' }}>Lowest Completion</option>
+                <option value="score_desc" {{ 'selected' if sort_by == 'score_desc' }}>Highest Scores</option>
+                <option value="score_asc" {{ 'selected' if sort_by == 'score_asc' }}>Lowest Scores</option>
+            </select>
+
+            <!-- Export Button -->
+            <button onclick="exportAnalyticsReport()" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
                 <i class="fas fa-download mr-2"></i>
                 Export Report
             </button>
@@ -36,11 +49,8 @@
                     <div class="ml-5 w-0 flex-1">
                         <dl>
                             <dt class="text-sm font-medium text-gray-500 truncate">Total Students</dt>
-                            <dd class="text-lg font-medium text-gray-900">
-                                {% set total_students = course_analytics|sum(attribute='course.students_enrolled') %}
-                                {{ total_students }}
-                            </dd>
-                            <dd class="text-sm text-green-600">+12% from last month</dd>
+                            <dd class="text-lg font-medium text-gray-900">{{ total_students }}</dd>
+                            <dd class="text-sm text-green-600">Across {{ total_courses }} courses</dd>
                         </dl>
                     </div>
                 </div>
@@ -56,14 +66,16 @@
                     <div class="ml-5 w-0 flex-1">
                         <dl>
                             <dt class="text-sm font-medium text-gray-500 truncate">Avg Completion Rate</dt>
-                            <dd class="text-lg font-medium text-gray-900">
-                                {% if course_analytics %}
-                                    {{ "%.1f"|format((course_analytics|sum(attribute='analytics.completion_rate')/course_analytics|length)) }}%
+                            <dd class="text-lg font-medium text-gray-900">{{ overall_completion }}%</dd>
+                            <dd class="text-sm text-green-600">
+                                {% if overall_completion >= 80 %}
+                                    Excellent performance
+                                {% elif overall_completion >= 60 %}
+                                    Good performance
                                 {% else %}
-                                    0%
+                                    Room for improvement
                                 {% endif %}
                             </dd>
-                            <dd class="text-sm text-green-600">+5% from last month</dd>
                         </dl>
                     </div>
                 </div>
@@ -78,15 +90,9 @@
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">Avg Course Rating</dt>
-                            <dd class="text-lg font-medium text-gray-900">
-                                {% if course_analytics %}
-                                    {{ "%.1f"|format((course_analytics|sum(attribute='course.rating')/course_analytics|length)) }}
-                                {% else %}
-                                    0.0
-                                {% endif %}
-                            </dd>
-                            <dd class="text-sm text-green-600">+0.2 from last month</dd>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Avg Quiz Score</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ overall_avg_score }}%</dd>
+                            <dd class="text-sm text-blue-600">Student performance</dd>
                         </dl>
                     </div>
                 </div>
@@ -97,13 +103,13 @@
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <i class="fas fa-clock text-2xl text-purple-600"></i>
+                        <i class="fas fa-book text-2xl text-purple-600"></i>
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-gray-500 truncate">Total Learning Hours</dt>
-                            <dd class="text-lg font-medium text-gray-900">2,847</dd>
-                            <dd class="text-sm text-green-600">+18% from last month</dd>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Active Courses</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ total_courses }}</dd>
+                            <dd class="text-sm text-purple-600">Published courses</dd>
                         </dl>
                     </div>
                 </div>
@@ -111,353 +117,277 @@
         </div>
     </div>
 
-    <!-- Charts Section -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <!-- Enrollment Trends Chart -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Student Enrollment Trends</h3>
-            </div>
-            <div class="p-6">
-                <div class="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-                    <div class="text-center">
-                        <i class="fas fa-chart-area text-4xl text-gray-400 mb-4"></i>
-                        <p class="text-gray-500">Enrollment chart will be displayed here</p>
-                        <p class="text-sm text-gray-400">Integration with Chart.js or similar library</p>
-                    </div>
-                </div>
-                <!-- Sample Data Visualization -->
-                <div class="mt-4 grid grid-cols-3 gap-4 text-center text-sm">
-                    <div>
-                        <div class="text-lg font-semibold text-blue-600">156</div>
-                        <div class="text-gray-500">This Month</div>
-                    </div>
-                    <div>
-                        <div class="text-lg font-semibold text-green-600">139</div>
-                        <div class="text-gray-500">Last Month</div>
-                    </div>
-                    <div>
-                        <div class="text-lg font-semibold text-purple-600">+12.2%</div>
-                        <div class="text-gray-500">Growth</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Completion Rates Chart -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Course Completion Rates</h3>
-            </div>
-            <div class="p-6">
-                <div class="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-                    <div class="text-center">
-                        <i class="fas fa-chart-pie text-4xl text-gray-400 mb-4"></i>
-                        <p class="text-gray-500">Completion rates chart will be displayed here</p>
-                        <p class="text-sm text-gray-400">Pie chart showing completion distribution</p>
-                    </div>
-                </div>
-                <!-- Sample Legend -->
-                <div class="mt-4 flex justify-center space-x-6 text-sm">
-                    <div class="flex items-center">
-                        <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                        <span>Completed (78%)</span>
-                    </div>
-                    <div class="flex items-center">
-                        <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
-                        <span>In Progress (18%)</span>
-                    </div>
-                    <div class="flex items-center">
-                        <div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                        <span>Not Started (4%)</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Course Performance Table -->
-    <div class="bg-white shadow rounded-lg mb-8">
+    <!-- Individual Course Performance -->
+    <div class="bg-white shadow rounded-lg">
         <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 class="text-lg font-medium text-gray-900">Individual Course Performance</h3>
-            <div class="flex space-x-2">
-                <button class="text-sm text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-sort-amount-down mr-1"></i>Sort
-                </button>
-                <button class="text-sm text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-filter mr-1"></i>Filter
-                </button>
-            </div>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completion Rate</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Score</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Engagement</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Time</th>
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    {% for item in course_analytics %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center">
-                                <img class="h-10 w-10 rounded-lg object-cover"
-                                     src="{{ item.course.image if item.course.image else 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80' }}"
-                                     alt="{{ item.course.title }}">
-                                <div class="ml-4">
-                                    <div class="text-sm font-medium text-gray-900">{{ item.course.title }}</div>
-                                    <div class="text-sm text-gray-500">{{ item.course.level }}</div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div class="flex items-center">
-                                <i class="fas fa-users text-gray-400 mr-2"></i>
-                                {{ item.course.students_enrolled }}
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center">
-                                <div class="text-sm font-medium text-gray-900">{{ item.analytics.completion_rate if item.analytics else 0 }}%</div>
-                                <div class="ml-2 w-16 bg-gray-200 rounded-full h-2">
-                                    <div class="bg-green-500 h-2 rounded-full" style="width: {{ item.analytics.completion_rate if item.analytics else 0 }}%"></div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <div class="flex items-center">
-                                <span class="text-sm font-medium">{{ item.analytics.avg_score if item.analytics else 0 }}%</span>
-                                {% if item.analytics and item.analytics.avg_score >= 85 %}
-                                <i class="fas fa-arrow-up text-green-500 ml-2"></i>
-                                {% elif item.analytics and item.analytics.avg_score >= 70 %}
-                                <i class="fas fa-minus text-yellow-500 ml-2"></i>
-                                {% else %}
-                                <i class="fas fa-arrow-down text-red-500 ml-2"></i>
-                                {% endif %}
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center">
-                                <span class="text-sm text-gray-900">{{ item.analytics.engagement_rate if item.analytics else 0 }}%</span>
-                                <div class="ml-2 w-12 bg-gray-200 rounded-full h-2">
-                                    <div class="bg-blue-500 h-2 rounded-full" style="width: {{ item.analytics.engagement_rate if item.analytics else 0 }}%"></div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            <i class="fas fa-clock text-gray-400 mr-1"></i>
-                            {{ item.analytics.total_time if item.analytics else '0 hours' }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div class="flex space-x-2">
-                                <button class="text-primary hover:text-blue-700" title="Detailed Analytics">
-                                    <i class="fas fa-chart-bar"></i>
-                                </button>
-                                <button class="text-gray-400 hover:text-gray-600" title="Download Report">
-                                    <i class="fas fa-download"></i>
-                                </button>
-                                <button class="text-gray-400 hover:text-gray-600" title="View Course">
-                                    <i class="fas fa-external-link-alt"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Student Engagement Insights -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        <!-- Top Performing Students -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Top Performing Students</h3>
-            </div>
-            <div class="p-6">
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center">
-                            <img class="h-8 w-8 rounded-full" src="https://ui-avatars.com/api/?name=John+Smith&background=3B82F6&color=fff" alt="John Smith">
-                            <div class="ml-3">
-                                <p class="text-sm font-medium text-gray-900">John Smith</p>
-                                <p class="text-xs text-gray-500">Grammar Fundamentals</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-sm font-medium text-green-600">98%</div>
-                            <div class="text-xs text-gray-500">Score</div>
-                        </div>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center">
-                            <img class="h-8 w-8 rounded-full" src="https://ui-avatars.com/api/?name=Sarah+Wilson&background=10B981&color=fff" alt="Sarah Wilson">
-                            <div class="ml-3">
-                                <p class="text-sm font-medium text-gray-900">Sarah Wilson</p>
-                                <p class="text-xs text-gray-500">Business English</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-sm font-medium text-green-600">95%</div>
-                            <div class="text-xs text-gray-500">Score</div>
-                        </div>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center">
-                            <img class="h-8 w-8 rounded-full" src="https://ui-avatars.com/api/?name=Mike+Johnson&background=8B5CF6&color=fff" alt="Mike Johnson">
-                            <div class="ml-3">
-                                <p class="text-sm font-medium text-gray-900">Mike Johnson</p>
-                                <p class="text-xs text-gray-500">IELTS Prep</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-sm font-medium text-green-600">92%</div>
-                            <div class="text-xs text-gray-500">Score</div>
-                        </div>
-                    </div>
-                </div>
+            <h2 class="text-lg font-medium text-gray-900">Individual Course Performance</h2>
+            <div class="text-sm text-gray-500">
+                Showing data for: <span id="currentFilterText">
+                    {% if time_filter == 'all_time' %}All Time
+                    {% elif time_filter == 'last_30_days' %}Last 30 Days
+                    {% elif time_filter == 'last_3_months' %}Last 3 Months
+                    {% elif time_filter == 'last_6_months' %}Last 6 Months
+                    {% endif %}
+                </span>
             </div>
         </div>
 
-        <!-- Recent Activity -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Recent Activity</h3>
-            </div>
-            <div class="p-6">
-                <div class="space-y-3">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                                <i class="fas fa-check text-green-600 text-sm"></i>
-                            </div>
-                        </div>
-                        <div class="ml-3 flex-1">
-                            <p class="text-sm text-gray-900">Quiz completed</p>
-                            <p class="text-xs text-gray-500">Emma Davis - Grammar Quiz 2</p>
-                            <p class="text-xs text-gray-400">5 minutes ago</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                <i class="fas fa-user-plus text-blue-600 text-sm"></i>
-                            </div>
-                        </div>
-                        <div class="ml-3 flex-1">
-                            <p class="text-sm text-gray-900">New enrollment</p>
-                            <p class="text-xs text-gray-500">Alex Chen - Business English</p>
-                            <p class="text-xs text-gray-400">2 hours ago</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                                <i class="fas fa-trophy text-purple-600 text-sm"></i>
-                            </div>
-                        </div>
-                        <div class="ml-3 flex-1">
-                            <p class="text-sm text-gray-900">Module completed</p>
-                            <p class="text-xs text-gray-500">Lisa Park - Sentence Structure</p>
-                            <p class="text-xs text-gray-400">1 day ago</p>
-                        </div>
-                    </div>
-                </div>
+        <!-- Loading indicator -->
+        <div id="loadingIndicator" class="hidden p-6 text-center">
+            <div class="inline-flex items-center">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading analytics data...
             </div>
         </div>
 
-        <!-- Course Recommendations -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Improvement Suggestions</h3>
-            </div>
-            <div class="p-6">
-                <div class="space-y-4">
-                    <div class="border-l-4 border-yellow-400 bg-yellow-50 p-3">
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                <i class="fas fa-lightbulb text-yellow-400"></i>
-                            </div>
-                            <div class="ml-3">
-                                <p class="text-sm text-yellow-800">Consider adding more interactive elements to Grammar Quiz 2 - completion rate is below average.</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="border-l-4 border-blue-400 bg-blue-50 p-3">
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                <i class="fas fa-info-circle text-blue-400"></i>
-                            </div>
-                            <div class="ml-3">
-                                <p class="text-sm text-blue-800">Business English course has high engagement - consider creating similar content.</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="border-l-4 border-green-400 bg-green-50 p-3">
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                <i class="fas fa-check-circle text-green-400"></i>
-                            </div>
-                            <div class="ml-3">
-                                <p class="text-sm text-green-800">Great job! Your courses show consistent improvement in student satisfaction.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Detailed Analytics Modal (Hidden by default) -->
-    <div x-data="{ showDetailModal: false, selectedCourse: null }" x-show="showDetailModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
-        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div x-show="showDetailModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 transition-opacity">
-                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
-            </div>
-
-            <div x-show="showDetailModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full">
-                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+        <div id="analyticsContent" class="p-6">
+            <div class="space-y-6">
+                {% for item in course_analytics %}
+                {% set course = item.course %}
+                {% set analytics = item.analytics %}
+                <div class="border border-gray-200 rounded-lg p-6">
                     <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg leading-6 font-medium text-gray-900">Detailed Course Analytics</h3>
-                        <button @click="showDetailModal = false" class="text-gray-400 hover:text-gray-600">
-                            <i class="fas fa-times"></i>
-                        </button>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-medium text-gray-900">{{ course.title }}</h3>
+                            <p class="text-sm text-gray-500 mt-1">
+                                {{ course.level }} • {{ course.category or 'General' }} •
+                                {% if course.status == 'published' %}
+                                    <span class="text-green-600">Published</span>
+                                {% elif course.status == 'draft' %}
+                                    <span class="text-yellow-600">Draft</span>
+                                {% else %}
+                                    <span class="text-gray-600">{{ course.status|title }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <!-- View Course Details -->
+                            <a href="{{ url_for('educator_course_detail', course_id=course._id) }}"
+                               class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                <i class="fas fa-eye mr-2"></i>
+                                View Details
+                            </a>
+
+                            <!-- Export Course Analytics -->
+                            <button onclick="exportCourseAnalytics('{{ course._id }}')"
+                                    class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                <i class="fas fa-download mr-2"></i>
+                                Export
+                            </button>
+
+                            <!-- View Course Analytics -->
+                            <a href="{{ url_for('educator_course_analytics', course_id=course._id) }}"
+                               class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-primary hover:bg-blue-700">
+                                <i class="fas fa-chart-bar mr-2"></i>
+                                Analytics
+                            </a>
+                        </div>
                     </div>
 
-                    <!-- Detailed analytics content would go here -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="space-y-4">
-                            <div class="bg-gray-50 p-4 rounded-lg">
-                                <h4 class="font-medium mb-2">Student Progress Distribution</h4>
-                                <div class="h-48 flex items-center justify-center bg-white rounded">
-                                    <p class="text-gray-500">Progress distribution chart</p>
-                                </div>
-                            </div>
+                    <!-- Course Metrics -->
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div class="text-center p-3 bg-blue-50 rounded-lg">
+                            <div class="text-2xl font-bold text-blue-600">{{ analytics.total_students }}</div>
+                            <div class="text-sm text-blue-800">Students</div>
                         </div>
-                        <div class="space-y-4">
-                            <div class="bg-gray-50 p-4 rounded-lg">
-                                <h4 class="font-medium mb-2">Quiz Performance Trends</h4>
-                                <div class="h-48 flex items-center justify-center bg-white rounded">
-                                    <p class="text-gray-500">Quiz performance chart</p>
-                                </div>
-                            </div>
+                        <div class="text-center p-3 bg-green-50 rounded-lg">
+                            <div class="text-2xl font-bold text-green-600">{{ analytics.completion_rate }}%</div>
+                            <div class="text-sm text-green-800">Completion</div>
+                        </div>
+                        <div class="text-center p-3 bg-yellow-50 rounded-lg">
+                            <div class="text-2xl font-bold text-yellow-600">{{ analytics.avg_score }}%</div>
+                            <div class="text-sm text-yellow-800">Avg Score</div>
+                        </div>
+                        <div class="text-center p-3 bg-purple-50 rounded-lg">
+                            <div class="text-2xl font-bold text-purple-600">{{ analytics.avg_progress }}%</div>
+                            <div class="text-sm text-purple-800">Avg Progress</div>
+                        </div>
+                        <div class="text-center p-3 bg-indigo-50 rounded-lg">
+                            <div class="text-2xl font-bold text-indigo-600">{{ analytics.modules_count }}</div>
+                            <div class="text-sm text-indigo-800">Modules</div>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="mt-4">
+                        <div class="flex justify-between text-sm text-gray-600 mb-1">
+                            <span>Course Completion Progress</span>
+                            <span>{{ analytics.completion_rate }}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-green-600 h-2 rounded-full" style="width: {{ analytics.completion_rate }}%"></div>
                         </div>
                     </div>
                 </div>
-                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                    <button @click="showDetailModal = false" class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm">
-                        Close
-                    </button>
+                {% endfor %}
+
+                {% if not course_analytics %}
+                <div class="text-center py-8">
+                    <i class="fas fa-chart-bar text-4xl text-gray-400 mb-4"></i>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No Courses Found</h3>
+                    <p class="text-gray-600">You haven't created any courses yet. Create your first course to see analytics here.</p>
+                    <a href="{{ url_for('educator_create_course') }}" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700">
+                        <i class="fas fa-plus mr-2"></i>
+                        Create Course
+                    </a>
                 </div>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
+
+<script>
+// Analytics filtering functionality
+function filterAnalytics() {
+    const timeFilter = document.getElementById('timeFilter').value;
+    const sortBy = document.getElementById('sortBy').value;
+
+    // Show loading indicator
+    document.getElementById('loadingIndicator').classList.remove('hidden');
+    document.getElementById('analyticsContent').style.opacity = '0.5';
+
+    // Update current filter text
+    const filterText = document.getElementById('timeFilter').selectedOptions[0].text;
+    document.getElementById('currentFilterText').textContent = filterText;
+
+    // Redirect with new parameters
+    const currentUrl = new URL(window.location);
+    currentUrl.searchParams.set('time_filter', timeFilter);
+    currentUrl.searchParams.set('sort_by', sortBy);
+
+    window.location.href = currentUrl.toString();
+}
+
+// Export all analytics report
+function exportAnalyticsReport() {
+    const timeFilter = document.getElementById('timeFilter').value;
+    const exportUrl = `{{ url_for('educator_export_analytics') }}?time_filter=${timeFilter}`;
+
+    // Show loading state
+    const button = event.target.closest('button');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Exporting...';
+    button.disabled = true;
+
+    // Create a temporary link to download the file
+    const link = document.createElement('a');
+    link.href = exportUrl;
+    link.download = 'educator_analytics_report.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Reset button state after a short delay
+    setTimeout(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }, 2000);
+}
+
+// Export individual course analytics
+function exportCourseAnalytics(courseId) {
+    const exportUrl = `{{ url_for('educator_export_course_analytics', course_id='COURSE_ID') }}`.replace('COURSE_ID', courseId);
+
+    // Show loading state
+    const button = event.target.closest('button');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Exporting...';
+    button.disabled = true;
+
+    // Create a temporary link to download the file
+    const link = document.createElement('a');
+    link.href = exportUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Reset button state after a short delay
+    setTimeout(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }, 2000);
+}
+
+// Show success message for exports
+function showExportSuccess(message) {
+    // Create and show a temporary success message
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'fixed top-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded shadow-lg z-50';
+    alertDiv.innerHTML = `
+        <div class="flex items-center">
+            <i class="fas fa-check-circle mr-2"></i>
+            <span>${message}</span>
+            <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-green-500 hover:text-green-700">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    document.body.appendChild(alertDiv);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentElement) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
+// Initialize tooltips for better UX
+document.addEventListener('DOMContentLoaded', function() {
+    // Add hover effects and tooltips
+    const buttons = document.querySelectorAll('button[onclick]');
+    buttons.forEach(button => {
+        button.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-1px)';
+            this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+        });
+
+        button.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '';
+        });
+    });
+
+    // Add loading states for dropdowns
+    const selects = document.querySelectorAll('select[onchange]');
+    selects.forEach(select => {
+        select.addEventListener('change', function() {
+            this.style.opacity = '0.7';
+        });
+    });
+});
+
+// Enhanced error handling for exports
+window.addEventListener('error', function(e) {
+    if (e.message.includes('export')) {
+        showErrorMessage('Export failed. Please try again or contact support.');
+    }
+});
+
+function showErrorMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-lg z-50';
+    alertDiv.innerHTML = `
+        <div class="flex items-center">
+            <i class="fas fa-exclamation-triangle mr-2"></i>
+            <span>${message}</span>
+            <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-red-500 hover:text-red-700">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    document.body.appendChild(alertDiv);
+
+    setTimeout(() => {
+        if (alertDiv.parentElement) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+
 {% endblock %}

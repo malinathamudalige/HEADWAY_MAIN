@@ -1,0 +1,383 @@
+<!-- templates/educator/module_analytics.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ module.title }} - Analytics{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-8" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-4">
+            <li>
+                <a href="{{ url_for('educator_dashboard') }}" class="text-gray-400 hover:text-gray-500">
+                    <i class="fas fa-home"></i>
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                    <a href="{{ url_for('educator_courses') }}" class="text-gray-400 hover:text-gray-500">My Courses</a>
+                </div>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                    <a href="{{ url_for('educator_course_detail', course_id=course._id) }}" class="text-gray-400 hover:text-gray-500">{{ course.title }}</a>
+                </div>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mr-4"></i>
+                    <span class="text-gray-500">{{ module.title }} Analytics</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="mb-8 flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Module Analytics</h1>
+            <p class="mt-2 text-gray-600">{{ module.title }} - Performance insights and completion data</p>
+        </div>
+        <div class="flex space-x-3">
+            <select class="border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm">
+                <option>Last 30 Days</option>
+                <option>Last 3 Months</option>
+                <option>All Time</option>
+            </select>
+            <button onclick="exportModuleAnalytics('{{ module._id }}')" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-download mr-2"></i>
+                Export Report
+            </button>
+        </div>
+    </div>
+
+    <!-- Module Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-users text-2xl text-blue-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Students</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ analytics.total_students }}</dd>
+                            <dd class="text-sm text-blue-600">Enrolled in course</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-check-circle text-2xl text-green-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Completed</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ analytics.completed_students }}</dd>
+                            <dd class="text-sm text-green-600">Students finished</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-percentage text-2xl text-yellow-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Completion Rate</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ "%.1f"|format(analytics.completion_rate) }}%</dd>
+                            <dd class="text-sm {% if analytics.completion_rate >= 80 %}text-green-600{% elif analytics.completion_rate >= 60 %}text-yellow-600{% else %}text-red-600{% endif %}">
+                                {% if analytics.completion_rate >= 80 %}Excellent
+                                {% elif analytics.completion_rate >= 60 %}Good
+                                {% else %}Needs improvement{% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-star text-2xl text-purple-600"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Avg Quiz Score</dt>
+                            <dd class="text-lg font-medium text-gray-900">{{ "%.1f"|format(analytics.avg_quiz_score) }}%</dd>
+                            <dd class="text-sm text-purple-600">
+                                {% if analytics.quiz_results %}{{ analytics.quiz_results|length }} attempts{% else %}No quizzes{% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Completion Progress Chart -->
+    <div class="bg-white shadow rounded-lg mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">Completion Progress</h2>
+        </div>
+        <div class="p-6">
+            <div class="mb-4">
+                <div class="flex justify-between text-sm text-gray-600 mb-2">
+                    <span>Progress Overview</span>
+                    <span>{{ analytics.completed_students }}/{{ analytics.total_students }} completed</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3">
+                    <div class="bg-green-600 h-3 rounded-full transition-all duration-1000" style="width: {{ analytics.completion_rate }}%"></div>
+                </div>
+            </div>
+
+            <!-- Progress breakdown -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                <div class="text-center p-4 bg-green-50 rounded-lg">
+                    <div class="text-2xl font-bold text-green-600">{{ analytics.completed_students }}</div>
+                    <div class="text-sm text-green-800">Completed</div>
+                </div>
+                <div class="text-center p-4 bg-yellow-50 rounded-lg">
+                    <div class="text-2xl font-bold text-yellow-600">{{ analytics.total_students - analytics.completed_students }}</div>
+                    <div class="text-sm text-yellow-800">In Progress</div>
+                </div>
+                <div class="text-center p-4 bg-blue-50 rounded-lg">
+                    <div class="text-2xl font-bold text-blue-600">{{ analytics.total_students }}</div>
+                    <div class="text-sm text-blue-800">Total Enrolled</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz Performance -->
+    {% if analytics.quiz_results %}
+    <div class="bg-white shadow rounded-lg mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">Quiz Performance</h2>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="text-center p-4 bg-purple-50 rounded-lg">
+                    <div class="text-2xl font-bold text-purple-600">{{ analytics.quiz_results|length }}</div>
+                    <div class="text-sm text-purple-800">Total Attempts</div>
+                </div>
+                <div class="text-center p-4 bg-green-50 rounded-lg">
+                    <div class="text-2xl font-bold text-green-600">{{ "%.1f"|format(analytics.avg_quiz_score) }}%</div>
+                    <div class="text-sm text-green-800">Average Score</div>
+                </div>
+                <div class="text-center p-4 bg-blue-50 rounded-lg">
+                    <div class="text-2xl font-bold text-blue-600">
+                        {{ analytics.quiz_results|selectattr('score_percentage', 'ge', 80)|list|length }}
+                    </div>
+                    <div class="text-sm text-blue-800">Scores ≥ 80%</div>
+                </div>
+            </div>
+
+            <!-- Quiz results table -->
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Correct/Total</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for result in analytics.quiz_results[:10] %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                Student {{ loop.index }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    {% if result.score_percentage >= 80 %}bg-green-100 text-green-800
+                                    {% elif result.score_percentage >= 60 %}bg-yellow-100 text-yellow-800
+                                    {% else %}bg-red-100 text-red-800{% endif %}">
+                                    {{ "%.1f"|format(result.score_percentage) }}%
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ result.correct_answers }}/{{ result.total_questions }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ result.completed_at.strftime('%b %d, %Y') if result.completed_at else 'N/A' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Module Information -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">Module Information</h2>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-sm font-medium text-gray-900">Module Details</h3>
+                    <dl class="mt-2 space-y-2">
+                        <div class="flex justify-between">
+                            <dt class="text-sm text-gray-500">Type:</dt>
+                            <dd class="text-sm text-gray-900">{{ module.type|title }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-sm text-gray-500">Duration:</dt>
+                            <dd class="text-sm text-gray-900">{{ module.duration or 'Not specified' }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-sm text-gray-500">Order:</dt>
+                            <dd class="text-sm text-gray-900">{{ module.order }}</dd>
+                        </div>
+                        <div class="flex justify-between">
+                            <dt class="text-sm text-gray-500">Created:</dt>
+                            <dd class="text-sm text-gray-900">{{ module.created_at.strftime('%b %d, %Y') if module.created_at else 'Unknown' }}</dd>
+                        </div>
+                    </dl>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-900">Performance Summary</h3>
+                    <div class="mt-2 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-500">Engagement Level:</span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if analytics.completion_rate >= 80 %}bg-green-100 text-green-800
+                                {% elif analytics.completion_rate >= 60 %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {% if analytics.completion_rate >= 80 %}High
+                                {% elif analytics.completion_rate >= 60 %}Medium
+                                {% else %}Low{% endif %}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-500">Quiz Performance:</span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                {% if analytics.avg_quiz_score >= 85 %}bg-green-100 text-green-800
+                                {% elif analytics.avg_quiz_score >= 70 %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {% if analytics.avg_quiz_score >= 85 %}Excellent
+                                {% elif analytics.avg_quiz_score >= 70 %}Good
+                                {% else %}Needs Improvement{% endif %}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-500">Overall Rating:</span>
+                            <div class="flex items-center">
+                                {% set rating = ((analytics.completion_rate + analytics.avg_quiz_score) / 2 / 20)|round %}
+                                {% for i in range(1, 6) %}
+                                    <i class="fas fa-star text-sm {% if i <= rating %}text-yellow-400{% else %}text-gray-300{% endif %}"></i>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Export module analytics
+function exportModuleAnalytics(moduleId) {
+    const button = event.target.closest('button');
+    const originalContent = button.innerHTML;
+
+    // Show loading state
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Exporting...';
+    button.disabled = true;
+
+    // Create export URL
+    const exportUrl = `/educator/module/${moduleId}/analytics/export`;
+
+    setTimeout(() => {
+        // Create download link
+        const link = document.createElement('a');
+        link.href = exportUrl;
+        link.download = `module_analytics_${moduleId}_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Show success message
+        if (typeof showNotification === 'function') {
+            showNotification('Module analytics exported successfully!', 'success');
+        }
+
+        // Reset button
+        button.innerHTML = originalContent;
+        button.disabled = false;
+    }, 1000);
+}
+
+// Initialize charts when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate progress bars
+    const progressBars = document.querySelectorAll('.bg-green-600[style*="width"]');
+    progressBars.forEach(bar => {
+        const targetWidth = bar.style.width;
+        bar.style.width = '0%';
+        bar.style.transition = 'width 1.5s ease-in-out';
+
+        setTimeout(() => {
+            bar.style.width = targetWidth;
+        }, 300);
+    });
+
+    // Animate metric cards
+    const metricCards = document.querySelectorAll('.text-2xl.font-bold');
+    metricCards.forEach((card, index) => {
+        const targetValue = parseInt(card.textContent) || parseFloat(card.textContent) || 0;
+        card.textContent = '0';
+
+        setTimeout(() => {
+            animateCounter(card, targetValue, 1500);
+        }, 200 * index);
+    });
+});
+
+function animateCounter(element, target, duration) {
+    const start = 0;
+    const increment = target / (duration / 16);
+    let current = start;
+
+    const timer = setInterval(() => {
+        current += increment;
+        if (current >= target) {
+            current = target;
+            clearInterval(timer);
+        }
+
+        // Handle different number formats
+        if (element.textContent.includes('%')) {
+            element.textContent = Math.round(current) + '%';
+        } else if (target % 1 !== 0) {
+            element.textContent = current.toFixed(1);
+        } else {
+            element.textContent = Math.round(current);
+        }
+    }, 16);
+}
+</script>
+
+{% endblock %}
