@@ -22,14 +22,6 @@
 .status-good { background-color: #10b981; }
 .status-warning { background-color: #f59e0b; }
 .status-danger { background-color: #ef4444; }
-.real-time-badge {
-    animation: pulse 2s infinite;
-}
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
-}
 .log-level-info { color: #3b82f6; }
 .log-level-warning { color: #f59e0b; }
 .log-level-error { color: #ef4444; }
@@ -42,17 +34,13 @@
     <div class="mb-8 flex items-center justify-between">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">System Administration</h1>
-            <p class="mt-2 text-gray-600">Real-time system monitoring and management</p>
+            <p class="mt-2 text-gray-600">System monitoring and management dashboard</p>
         </div>
         <div class="flex items-center space-x-3">
-            <span class="real-time-badge bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+            <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
                 <span class="status-indicator status-good"></span>
-                Real-time Monitoring
+                Monitoring Active
             </span>
-            <button id="refreshBtn" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                <i class="fas fa-sync mr-2"></i>
-                Refresh
-            </button>
         </div>
     </div>
 
@@ -65,12 +53,12 @@
                 <div class="p-5">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
-                            <i class="fas fa-clock text-2xl text-green-600"></i>
+                            <i class="fas fa-server text-2xl text-green-600"></i>
                         </div>
                         <div class="ml-5 w-0 flex-1">
                             <dl>
                                 <dt class="text-sm font-medium text-gray-500 truncate">System Uptime</dt>
-                                <dd class="text-lg font-medium text-gray-900" id="system-uptime">{{ metrics.system_uptime }}</dd>
+                                <dd class="text-lg font-medium text-gray-900">{{ metrics.system_uptime if metrics else 'N/A' }}</dd>
                             </dl>
                         </div>
                     </div>
@@ -82,12 +70,12 @@
                 <div class="p-5">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
-                            <i class="fas fa-server text-2xl text-blue-600"></i>
+                            <i class="fas fa-play text-2xl text-blue-600"></i>
                         </div>
                         <div class="ml-5 w-0 flex-1">
                             <dl>
                                 <dt class="text-sm font-medium text-gray-500 truncate">App Uptime</dt>
-                                <dd class="text-lg font-medium text-gray-900" id="app-uptime">{{ metrics.app_uptime }}</dd>
+                                <dd class="text-lg font-medium text-gray-900">{{ metrics.app_uptime if metrics else 'N/A' }}</dd>
                             </dl>
                         </div>
                     </div>
@@ -99,12 +87,12 @@
                 <div class="p-5">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
-                            <i class="fas fa-microchip text-2xl text-orange-600"></i>
+                            <i class="fas fa-microchip text-2xl text-yellow-600"></i>
                         </div>
                         <div class="ml-5 w-0 flex-1">
                             <dl>
                                 <dt class="text-sm font-medium text-gray-500 truncate">CPU Usage</dt>
-                                <dd class="text-lg font-medium text-gray-900" id="cpu-usage">{{ metrics.cpu_usage }}</dd>
+                                <dd class="text-lg font-medium text-gray-900">{{ metrics.cpu_usage if metrics else 'N/A' }}</dd>
                             </dl>
                         </div>
                     </div>
@@ -121,7 +109,7 @@
                         <div class="ml-5 w-0 flex-1">
                             <dl>
                                 <dt class="text-sm font-medium text-gray-500 truncate">Active Sessions</dt>
-                                <dd class="text-lg font-medium text-gray-900" id="active-sessions">{{ metrics.active_sessions }}</dd>
+                                <dd class="text-lg font-medium text-gray-900">{{ metrics.active_sessions if metrics else 'N/A' }}</dd>
                             </dl>
                         </div>
                     </div>
@@ -130,104 +118,62 @@
         </div>
     </div>
 
-    <!-- Detailed Metrics -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <!-- Memory and Storage -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Memory & Storage</h3>
-            </div>
-            <div class="p-6">
-                <div class="space-y-4">
-                    <!-- Memory Usage -->
-                    <div>
-                        <div class="flex justify-between text-sm font-medium text-gray-900 mb-1">
-                            <span>Memory Usage</span>
-                            <span id="memory-percent">{{ metrics.memory_usage }}</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            <div class="bg-blue-600 h-2 rounded-full" style="width: {{ metrics.memory_usage }}" id="memory-bar"></div>
-                        </div>
-                        <div class="flex justify-between text-xs text-gray-600 mt-1">
-                            <span id="memory-used">{{ metrics.memory_details.used }}</span>
-                            <span id="memory-total">{{ metrics.memory_details.total }}</span>
-                        </div>
+    <!-- Memory and Disk Usage -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Memory Usage -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Memory Usage</h3>
+                <div class="mb-3">
+                    <div class="flex justify-between text-sm text-gray-600 mb-1">
+                        <span>Used Memory</span>
+                        <span>{{ metrics.memory_usage if metrics else 'N/A' }}</span>
                     </div>
-
-                    <!-- Disk Usage -->
-                    <div>
-                        <div class="flex justify-between text-sm font-medium text-gray-900 mb-1">
-                            <span>Disk Usage</span>
-                            <span id="disk-percent">{{ metrics.disk_usage }}</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            <div class="bg-green-600 h-2 rounded-full" style="width: {{ metrics.disk_usage }}" id="disk-bar"></div>
-                        </div>
-                        <div class="flex justify-between text-xs text-gray-600 mt-1">
-                            <span id="disk-used">{{ metrics.disk_details.used }}</span>
-                            <span id="disk-total">{{ metrics.disk_details.total }}</span>
-                        </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-blue-600 h-2 rounded-full" style="width: {{ metrics.memory_usage if metrics else '0%' }}"></div>
                     </div>
+                </div>
+                <div class="flex justify-between text-sm text-gray-500">
+                    <span>{{ metrics.memory_details.used if metrics and metrics.memory_details else 'N/A' }}</span>
+                    <span>{{ metrics.memory_details.total if metrics and metrics.memory_details else 'N/A' }}</span>
                 </div>
             </div>
         </div>
 
-        <!-- Database Stats -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">Database Statistics</h3>
-            </div>
-            <div class="p-6">
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="text-center">
-                        <dt class="text-sm font-medium text-gray-500">Database Size</dt>
-                        <dd class="text-2xl font-bold text-gray-900" id="db-size">{{ metrics.database_stats.size }}</dd>
+        <!-- Disk Usage -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Disk Usage</h3>
+                <div class="mb-3">
+                    <div class="flex justify-between text-sm text-gray-600 mb-1">
+                        <span>Used Space</span>
+                        <span>{{ metrics.disk_usage if metrics else 'N/A' }}</span>
                     </div>
-                    <div class="text-center">
-                        <dt class="text-sm font-medium text-gray-500">Collections</dt>
-                        <dd class="text-2xl font-bold text-gray-900" id="db-collections">{{ metrics.database_stats.collections }}</dd>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-green-600 h-2 rounded-full" style="width: {{ metrics.disk_usage if metrics else '0%' }}"></div>
                     </div>
-                    <div class="text-center">
-                        <dt class="text-sm font-medium text-gray-500">Documents</dt>
-                        <dd class="text-2xl font-bold text-gray-900" id="db-documents">{{ metrics.database_stats.documents }}</dd>
-                    </div>
-                    <div class="text-center">
-                        <dt class="text-sm font-medium text-gray-500">Indexes</dt>
-                        <dd class="text-2xl font-bold text-gray-900" id="db-indexes">{{ metrics.database_stats.indexes or 'N/A' }}</dd>
-                    </div>
+                </div>
+                <div class="flex justify-between text-sm text-gray-500">
+                    <span>{{ metrics.disk_details.used if metrics and metrics.disk_details else 'N/A' }}</span>
+                    <span>{{ metrics.disk_details.total if metrics and metrics.disk_details else 'N/A' }}</span>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- System Actions -->
+
+
+    <!-- Available Actions -->
     <div class="mb-8">
-        <h2 class="text-lg font-medium text-gray-900 mb-4">System Actions</h2>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <button onclick="performAction('restart')" class="p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <div class="flex items-center">
-                    <i class="fas fa-sync text-blue-600 text-lg mr-3"></i>
-                    <span class="text-sm font-medium text-gray-900">Restart Services</span>
-                </div>
-            </button>
-            <button onclick="performAction('backup')" class="p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <div class="flex items-center">
-                    <i class="fas fa-download text-green-600 text-lg mr-3"></i>
-                    <span class="text-sm font-medium text-gray-900">Backup Data</span>
-                </div>
-            </button>
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Available Actions</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Only keep the working View Logs link -->
             <a href="{{ url_for('system_admin_logs') }}" class="p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                 <div class="flex items-center">
                     <i class="fas fa-list text-indigo-600 text-lg mr-3"></i>
-                    <span class="text-sm font-medium text-gray-900">View Logs</span>
+                    <span class="text-sm font-medium text-gray-900">View System Logs</span>
                 </div>
             </a>
-            <button onclick="performAction('cleanup')" class="p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <div class="flex items-center">
-                    <i class="fas fa-broom text-orange-600 text-lg mr-3"></i>
-                    <span class="text-sm font-medium text-gray-900">System Cleanup</span>
-                </div>
-            </button>
         </div>
     </div>
 
@@ -238,7 +184,8 @@
             <a href="{{ url_for('system_admin_logs') }}" class="text-sm text-blue-600 hover:text-blue-500">View All Logs</a>
         </div>
         <div class="p-6">
-            <div class="space-y-3" id="recent-logs">
+            {% if logs %}
+            <div class="space-y-3">
                 {% for log in logs %}
                 <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
                     <div class="flex items-center space-x-3">
@@ -250,165 +197,18 @@
                             <p class="text-xs text-gray-500">{{ log.module }} • {{ log.timestamp }}</p>
                         </div>
                     </div>
-                    <span class="text-xs text-gray-400">{{ log.ip }}</span>
+                    <span class="text-xs text-gray-400">{{ log.ip if log.ip else 'System' }}</span>
                 </div>
                 {% endfor %}
             </div>
+            {% else %}
+            <div class="text-center py-8">
+                <i class="fas fa-list text-gray-400 text-4xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No recent logs</h3>
+                <p class="text-gray-600">System logs will appear here when available.</p>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
-
-<!-- Action Confirmation Modal -->
-<div id="actionModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
-    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <div class="mt-3 text-center">
-            <h3 class="text-lg font-medium text-gray-900" id="modalTitle">Confirm Action</h3>
-            <div class="mt-2 px-7 py-3">
-                <p class="text-sm text-gray-500" id="modalMessage">Are you sure you want to perform this action?</p>
-            </div>
-            <div class="items-center px-4 py-3">
-                <button id="confirmBtn" class="px-4 py-2 bg-blue-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-blue-700 mr-2">
-                    Confirm
-                </button>
-                <button onclick="closeModal()" class="px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md shadow-sm hover:bg-gray-400">
-                    Cancel
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-let currentAction = '';
-
-// Auto-refresh metrics every 30 seconds
-setInterval(refreshMetrics, 30000);
-
-// Manual refresh button
-document.getElementById('refreshBtn').addEventListener('click', refreshMetrics);
-
-function refreshMetrics() {
-    fetch('/system-admin/api/metrics')
-        .then(response => response.json())
-        .then(data => {
-            updateMetrics(data);
-        })
-        .catch(error => {
-            console.error('Error fetching metrics:', error);
-        });
-}
-
-function updateMetrics(metrics) {
-    // Update basic metrics
-    document.getElementById('system-uptime').textContent = metrics.system_uptime;
-    document.getElementById('app-uptime').textContent = metrics.app_uptime;
-    document.getElementById('cpu-usage').textContent = metrics.cpu_usage;
-    document.getElementById('active-sessions').textContent = metrics.active_sessions;
-
-    // Update memory metrics
-    document.getElementById('memory-percent').textContent = metrics.memory_usage;
-    document.getElementById('memory-bar').style.width = metrics.memory_usage;
-    document.getElementById('memory-used').textContent = metrics.memory_details.used;
-    document.getElementById('memory-total').textContent = metrics.memory_details.total;
-
-    // Update disk metrics
-    document.getElementById('disk-percent').textContent = metrics.disk_usage;
-    document.getElementById('disk-bar').style.width = metrics.disk_usage;
-    document.getElementById('disk-used').textContent = metrics.disk_details.used;
-    document.getElementById('disk-total').textContent = metrics.disk_details.total;
-
-    // Update database metrics
-    document.getElementById('db-size').textContent = metrics.database_stats.size;
-    document.getElementById('db-collections').textContent = metrics.database_stats.collections;
-    document.getElementById('db-documents').textContent = metrics.database_stats.documents;
-    document.getElementById('db-indexes').textContent = metrics.database_stats.indexes || 'N/A';
-}
-
-function performAction(action) {
-    currentAction = action;
-    const titles = {
-        'restart': 'Restart System Services',
-        'backup': 'Backup System Data',
-        'cleanup': 'System Cleanup'
-    };
-    const messages = {
-        'restart': 'This will restart system services. Are you sure you want to continue?',
-        'backup': 'This will create a backup of the system data. Continue?',
-        'cleanup': 'This will remove inactive sessions and temporary data. Continue?'
-    };
-
-    document.getElementById('modalTitle').textContent = titles[action];
-    document.getElementById('modalMessage').textContent = messages[action];
-    document.getElementById('actionModal').classList.remove('hidden');
-}
-
-function closeModal() {
-    document.getElementById('actionModal').classList.add('hidden');
-    currentAction = '';
-}
-
-document.getElementById('confirmBtn').addEventListener('click', function() {
-    if (currentAction) {
-        executeAction(currentAction);
-        closeModal();
-    }
-});
-
-function executeAction(action) {
-    const btn = event.target;
-    const originalText = btn.textContent;
-    btn.textContent = 'Processing...';
-    btn.disabled = true;
-
-    fetch(`/system-admin/actions/${action}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showNotification(data.message, 'success');
-            refreshMetrics(); // Refresh metrics after action
-        } else {
-            showNotification(data.message, 'error');
-        }
-    })
-    .catch(error => {
-        showNotification('An error occurred while performing the action.', 'error');
-        console.error('Error:', error);
-    })
-    .finally(() => {
-        btn.textContent = originalText;
-        btn.disabled = false;
-    });
-}
-
-function showNotification(message, type) {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 p-4 rounded-md shadow-lg z-50 ${
-        type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
-        'bg-red-100 text-red-800 border border-red-200'
-    }`;
-    notification.textContent = message;
-
-    document.body.appendChild(notification);
-
-    // Remove notification after 5 seconds
-    setTimeout(() => {
-        notification.remove();
-    }, 5000);
-}
-
-// Close modal when clicking outside
-document.getElementById('actionModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal();
-    }
-});
-</script>
 {% endblock %}

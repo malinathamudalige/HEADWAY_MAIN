@@ -9,11 +9,10 @@ Jinja2==3.1.6
 Flask-PyMongo==2.3.0
 pymongo==4.6.3
 
-# System Monitoring (Essential)
+# System Monitoring
 psutil==5.9.7
 
-# Data visualization (Essential for charts)
-matplotlib==3.8.2
+# Data visualization
 plotly==5.18.0
 
 # Performance monitoring
@@ -31,5 +30,9 @@ requests==2.32.4
 # Environment variables
 python-dotenv==1.0.0
 
-# Authentication (if you use bcrypt)
+# Authentication
 bcrypt==4.1.2
+
+# HTTP requests
+requests>=2.25.0
+

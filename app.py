@@ -8,10 +8,12 @@ import os
 from dotenv import load_dotenv
 from database import users_collection,enrollments_collection, quiz_results_collection, leaderboard_collection
 from utils.system_monitor import initialize_system_monitor, get_system_monitor
-import json
 import csv
 import io
 from flask import make_response
+
+
+
 
 # Import MongoDB models
 from database import (
@@ -4042,6 +4044,9 @@ def content_manager_create_module(course_id):
             'success': False,
             'message': f'An error occurred while creating the module: {str(e)}'
         }), 500
+
+
+
 
 # =====================================================
 # SYSTEM ADMIN ROUTES
