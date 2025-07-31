@@ -14,7 +14,7 @@ class MongoDB:
     def __init__(self):
         # MongoDB connection string
         self.connection_string = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
-        self.database_name = os.getenv('DATABASE_NAME', 'HEADWAY_MAIN')
+        self.database_name = os.getenv('DATABASE_NAME', 'headway_elearning')
 
         # Initialize connection
         self.client = None

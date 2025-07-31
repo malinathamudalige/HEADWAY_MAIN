@@ -35,7 +35,7 @@ app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
 # Initialize system monitor with your MongoDB configuration
 system_monitor = initialize_system_monitor(
     mongo_uri=app.config.get('MONGO_URI'),
-    db_name='HEADWAY_MAIN'
+    db_name='headway_elearning'
 )
 
 
