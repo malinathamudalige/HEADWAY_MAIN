@@ -4,23 +4,18 @@
 {% block title %}My Courses - Headway E-Learning{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="coursesPage()">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Header -->
     <div class="mb-8 flex items-center justify-between">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">My Courses</h1>
-            <p class="mt-2 text-gray-600">Manage your courses and track student progress</p>
+            <p class="mt-2 text-gray-600">Manage and track your course content</p>
         </div>
-        <div class="flex space-x-3">
-            <button @click="showFilters = !showFilters" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                <i class="fas fa-filter mr-2"></i>
-                <span x-text="showFilters ? 'Hide Filters' : 'Show Filters'"></span>
-            </button>
-            <a href="{{ url_for('educator_create_course') }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700">
-                <i class="fas fa-plus mr-2"></i>
-                Create Course
-            </a>
-        </div>
+        <a href="{{ url_for('educator_create_course') }}"
+           class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700">
+            <i class="fas fa-plus mr-2"></i>
+            Create New Course
+        </a>
     </div>
 
     <!-- Course Statistics -->
@@ -29,12 +24,12 @@
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <i class="fas fa-book text-2xl text-blue-600"></i>
+                        <i class="fas fa-book text-2xl text-primary"></i>
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
                             <dt class="text-sm font-medium text-gray-500 truncate">Total Courses</dt>
-                            <dd class="text-lg font-medium text-gray-900">{{ courses|length }}</dd>
+                            <dd class="text-lg font-semibold text-gray-900">{{ total_courses }}</dd>
                         </dl>
                     </div>
                 </div>
@@ -50,10 +45,7 @@
                     <div class="ml-5 w-0 flex-1">
                         <dl>
                             <dt class="text-sm font-medium text-gray-500 truncate">Total Students</dt>
-                            <dd class="text-lg font-medium text-gray-900">
-                                {% set total_students = courses|sum(attribute='students_enrolled') %}
-                                {{ total_students }}
-                            </dd>
+                            <dd class="text-lg font-semibold text-gray-900">{{ total_students }}</dd>
                         </dl>
                     </div>
                 </div>
@@ -64,14 +56,12 @@
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <i class="fas fa-check-circle text-2xl text-purple-600"></i>
+                        <i class="fas fa-trophy text-2xl text-yellow-500"></i>
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
                             <dt class="text-sm font-medium text-gray-500 truncate">Published</dt>
-                            <dd class="text-lg font-medium text-gray-900">
-                                {{ courses|selectattr('status', 'equalto', 'published')|list|length }}
-                            </dd>
+                            <dd class="text-lg font-semibold text-gray-900">{{ published_courses }}</dd>
                         </dl>
                     </div>
                 </div>
@@ -82,15 +72,12 @@
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <i class="fas fa-star text-2xl text-yellow-500"></i>
+                        <i class="fas fa-star text-2xl text-purple-600"></i>
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
                             <dt class="text-sm font-medium text-gray-500 truncate">Avg Rating</dt>
-                            <dd class="text-lg font-medium text-gray-900">
-                                {% set avg_rating = (courses|sum(attribute='rating') / courses|length) if courses else 0 %}
-                                {{ "%.1f"|format(avg_rating) }}
-                            </dd>
+                            <dd class="text-lg font-semibold text-gray-900">{{ avg_rating }}</dd>
                         </dl>
                     </div>
                 </div>
@@ -98,252 +85,299 @@
         </div>
     </div>
 
-    <!-- Search and Filters -->
-    <div class="bg-white p-6 rounded-lg shadow mb-8">
-        <form method="GET" action="{{ url_for('educator_courses') }}" class="space-y-4">
-            <!-- Search Bar -->
+    <!-- Filter and Search Section -->
+    <div class="bg-white shadow rounded-lg mb-6 p-4" x-data="{ filtersOpen: false }">
+        <div class="flex items-center justify-between">
             <div class="flex items-center space-x-4">
-                <div class="flex-1 relative">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <i class="fas fa-search text-gray-400"></i>
-                    </div>
-                    <input type="text" name="search" value="{{ request.args.get('search', '') }}"
-                           placeholder="Search courses..."
-                           class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-primary focus:border-primary">
+                <div class="relative">
+                    <input type="text" placeholder="Search courses..."
+                           class="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary"
+                           x-model="searchQuery" @input="filterCourses()">
+                    <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
                 </div>
-                <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700">
-                    <i class="fas fa-search mr-2"></i>
-                    Search
+                <button @click="filtersOpen = !filtersOpen"
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                    <i class="fas fa-filter mr-2"></i>
+                    Filters
                 </button>
             </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-sm text-gray-500">View:</span>
+                <button @click="viewMode = 'grid'" :class="viewMode === 'grid' ? 'text-primary' : 'text-gray-400'"
+                        class="p-2 hover:text-primary">
+                    <i class="fas fa-th-large"></i>
+                </button>
+                <button @click="viewMode = 'list'" :class="viewMode === 'list' ? 'text-primary' : 'text-gray-400'"
+                        class="p-2 hover:text-primary">
+                    <i class="fas fa-list"></i>
+                </button>
+            </div>
+        </div>
 
-            <!-- Advanced Filters -->
-            <div x-show="showFilters" x-transition class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <!-- Filter Options -->
+        <div x-show="filtersOpen" x-transition class="mt-4 pt-4 border-t border-gray-200">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Status</label>
-                    <select name="status" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select x-model="statusFilter" @change="filterCourses()"
+                            class="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary">
                         <option value="">All Status</option>
-                        <option value="published" {{ 'selected' if request.args.get('status') == 'published' }}>Published</option>
-                        <option value="draft" {{ 'selected' if request.args.get('status') == 'draft' }}>Draft</option>
-                        <option value="archived" {{ 'selected' if request.args.get('status') == 'archived' }}>Archived</option>
+                        <option value="published">Published</option>
+                        <option value="draft">Draft</option>
+                        <option value="archived">Archived</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Level</label>
-                    <select name="level" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Level</label>
+                    <select x-model="levelFilter" @change="filterCourses()"
+                            class="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary">
                         <option value="">All Levels</option>
-                        <option value="Beginner" {{ 'selected' if request.args.get('level') == 'Beginner' }}>Beginner</option>
-                        <option value="Intermediate" {{ 'selected' if request.args.get('level') == 'Intermediate' }}>Intermediate</option>
-                        <option value="Advanced" {{ 'selected' if request.args.get('level') == 'Advanced' }}>Advanced</option>
+                        <option value="Beginner">Beginner</option>
+                        <option value="Intermediate">Intermediate</option>
+                        <option value="Advanced">Advanced</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Sort By</label>
-                    <select name="sort" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
-                        <option value="created_desc" {{ 'selected' if request.args.get('sort') == 'created_desc' }}>Newest First</option>
-                        <option value="created_asc" {{ 'selected' if request.args.get('sort') == 'created_asc' }}>Oldest First</option>
-                        <option value="students_desc" {{ 'selected' if request.args.get('sort') == 'students_desc' }}>Most Students</option>
-                        <option value="rating_desc" {{ 'selected' if request.args.get('sort') == 'rating_desc' }}>Highest Rated</option>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <select x-model="categoryFilter" @change="filterCourses()"
+                            class="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary">
+                        <option value="">All Categories</option>
+                        <option value="Grammar">Grammar</option>
+                        <option value="Vocabulary">Vocabulary</option>
+                        <option value="Conversation">Conversation</option>
+                        <option value="Writing">Writing</option>
+                        <option value="Reading">Reading</option>
+                        <option value="Listening">Listening</option>
                     </select>
                 </div>
-                <div class="flex items-end space-x-2">
-                    <button type="submit" class="flex-1 bg-primary border border-transparent rounded-md py-2 px-4 flex items-center justify-center text-sm font-medium text-white hover:bg-blue-700">
-                        <i class="fas fa-filter mr-2"></i>
-                        Apply
-                    </button>
-                    <a href="{{ url_for('educator_courses') }}" class="bg-gray-300 border border-gray-300 rounded-md py-2 px-4 flex items-center justify-center text-sm font-medium text-gray-700 hover:bg-gray-400">
-                        Clear
-                    </a>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+                    <select x-model="sortBy" @change="filterCourses()"
+                            class="w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="most_students">Most Students</option>
+                        <option value="highest_rated">Highest Rated</option>
+                    </select>
                 </div>
             </div>
-        </form>
+        </div>
     </div>
 
-    <!-- Course Cards Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {% for course in courses %}
-        <div class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-shadow duration-300">
-            <!-- Course Header -->
-            <div class="relative">
-                <img class="h-48 w-full object-cover"
-                     src="{{ course.image if course.image else 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80' }}"
-                     alt="{{ course.title }}">
+    <!-- Courses Grid/List -->
+    <div x-data="coursesPage()">
+        <!-- Grid View -->
+        <div x-show="viewMode === 'grid'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for course in courses %}
+            <div x-show="shouldShowCourse('{{ course.status }}')"
+                 class="bg-white overflow-hidden shadow-lg rounded-lg hover:shadow-xl transition-shadow duration-300 relative">
+                <!-- Course Header -->
+                <div class="relative">
+                    <img class="h-48 w-full object-cover"
+                         src="{{ course.image if course.image else 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80' }}"
+                         alt="{{ course.title }}">
 
-                <!-- Status Badge -->
-                <div class="absolute top-4 right-4">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                        {% if course.status == 'published' %}bg-green-100 text-green-800
-                        {% elif course.status == 'draft' %}bg-yellow-100 text-yellow-800
-                        {% else %}bg-gray-100 text-gray-800{% endif %}">
-                        {{ course.status|title }}
-                    </span>
+                    <!-- Status Badge -->
+                    <div class="absolute top-4 right-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if course.status == 'published' %}bg-green-100 text-green-800
+                            {% elif course.status == 'draft' %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ course.status|title }}
+                        </span>
+                    </div>
+
+                    <!-- Action Dropdown -->
+                    <div class="absolute top-4 left-4" x-data="{ dropdownOpen: false }">
+                        <button @click="dropdownOpen = !dropdownOpen"
+                                @click.outside="dropdownOpen = false"
+                                class="bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-lg hover:bg-white transition-colors">
+                            <i class="fas fa-ellipsis-v text-gray-600"></i>
+                        </button>
+
+                        <div x-show="dropdownOpen"
+                             x-transition:enter="transition ease-out duration-100"
+                             x-transition:enter-start="transform opacity-0 scale-95"
+                             x-transition:enter-end="transform opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-75"
+                             x-transition:leave-start="transform opacity-100 scale-100"
+                             x-transition:leave-end="transform opacity-0 scale-95"
+                             @click.outside="dropdownOpen = false"
+                             x-cloak
+                             class="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg z-50 border border-gray-200">
+                            <div class="py-1">
+                                <a href="{{ url_for('educator_course_detail', course_id=course._id) }}"
+                                   class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="fas fa-eye mr-2"></i>View Details
+                                </a>
+                                <a href="{{ url_for('educator_edit_course', course_id=course._id) }}"
+                                   class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="fas fa-edit mr-2"></i>Edit Course
+                                </a>
+                                <a href="{{ url_for('educator_course_analytics', course_id=course._id) }}"
+                                   class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="fas fa-chart-bar mr-2"></i>Analytics
+                                </a>
+                                <a href="{{ url_for('course_leaderboard', course_id=course._id) }}"
+                                   class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="fas fa-trophy mr-2"></i>Leaderboard
+                                </a>
+                                <div class="border-t border-gray-100 my-1"></div>
+
+                                <!-- Conditional Publish/Unpublish -->
+                                {% if course.status == 'draft' %}
+                                <button @click="dropdownOpen = false; publishCourse('{{ course._id }}')"
+                                        type="button"
+                                        class="block w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50">
+                                    <i class="fas fa-globe mr-2"></i>Publish Course
+                                </button>
+                                {% elif course.status == 'published' %}
+                                <button @click="dropdownOpen = false; unpublishCourse('{{ course._id }}')"
+                                        type="button"
+                                        class="block w-full text-left px-4 py-2 text-sm text-yellow-700 hover:bg-yellow-50">
+                                    <i class="fas fa-pause mr-2"></i>Unpublish
+                                </button>
+                                {% endif %}
+
+                                <button @click="dropdownOpen = false; duplicateCourse('{{ course._id }}')"
+                                        type="button"
+                                        class="block w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50">
+                                    <i class="fas fa-copy mr-2"></i>Duplicate
+                                </button>
+
+                                <div class="border-t border-gray-100 my-1"></div>
+
+                                <button @click="dropdownOpen = false; deleteCourse('{{ course._id }}', '{{ course.title }}')"
+                                        type="button"
+                                        class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">
+                                    <i class="fas fa-trash mr-2"></i>Delete Course
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Action Dropdown -->
-                <div class="absolute top-4 left-4" x-data="{ dropdownOpen: false }">
-                    <button @click="dropdownOpen = !dropdownOpen"
-                            class="bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-lg hover:bg-white transition-colors">
-                        <i class="fas fa-ellipsis-v text-gray-600"></i>
-                    </button>
+                <!-- Course Content -->
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-lg font-semibold text-gray-900 truncate">{{ course.title }}</h3>
+                        <div class="flex items-center">
+                            <i class="fas fa-star text-yellow-400 mr-1"></i>
+                            <span class="text-sm text-gray-600">{{ course.rating or 0 }}</span>
+                        </div>
+                    </div>
 
-                    <div x-show="dropdownOpen"
-                         @click.away="dropdownOpen = false"
-                         x-transition
-                         class="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
-                        <div class="py-1">
-                            <a href="{{ url_for('educator_course_detail', course_id=course._id) }}"
-                               class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i class="fas fa-eye mr-2"></i>View Details
-                            </a>
-                            <a href="{{ url_for('educator_edit_course', course_id=course._id) }}"
-                               class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i class="fas fa-edit mr-2"></i>Edit Course
-                            </a>
-                            <a href="{{ url_for('educator_course_analytics', course_id=course._id) }}"
-                               class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i class="fas fa-chart-bar mr-2"></i>Analytics
-                            </a>
-                            <a href="{{ url_for('course_leaderboard', course_id=course._id) }}"
-                               class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i class="fas fa-trophy mr-2"></i>Leaderboard
-                            </a>
-                            <div class="border-t border-gray-100"></div>
-                            {% if course.status == 'draft' %}
-                            <button @click="publishCourse('{{ course._id }}')"
-                                    class="block w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50">
-                                <i class="fas fa-globe mr-2"></i>Publish Course
-                            </button>
-                            {% elif course.status == 'published' %}
-                            <button @click="unpublishCourse('{{ course._id }}')"
-                                    class="block w-full text-left px-4 py-2 text-sm text-yellow-700 hover:bg-yellow-50">
-                                <i class="fas fa-pause mr-2"></i>Unpublish
-                            </button>
-                            {% endif %}
-                            <button @click="duplicateCourse('{{ course._id }}')"
-                                    class="block w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50">
-                                <i class="fas fa-copy mr-2"></i>Duplicate
-                            </button>
-                            <div class="border-t border-gray-100"></div>
-                            <button @click="deleteCourse('{{ course._id }}', '{{ course.title }}')"
-                                    class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">
-                                <i class="fas fa-trash mr-2"></i>Delete Course
-                            </button>
+                    <p class="text-gray-600 text-sm mb-4 line-clamp-2">{{ course.description }}</p>
+
+                    <div class="flex items-center justify-between text-sm text-gray-500 mb-4">
+                        <div class="flex items-center">
+                            <i class="fas fa-signal mr-1"></i>
+                            <span>{{ course.level }}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-clock mr-1"></i>
+                            <span>{{ course.duration }}</span>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fas fa-users text-gray-400 mr-2"></i>
+                                <span class="text-sm text-gray-600">{{ course.enrolled_count or 0 }} students</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-book text-gray-400 mr-2"></i>
+                                <span class="text-sm text-gray-600">{{ course.modules_count or 0 }} modules</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Course Content -->
-            <div class="p-6">
-                <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-lg font-semibold text-gray-900 truncate">{{ course.title }}</h3>
-                    <div class="flex items-center">
-                        <i class="fas fa-star text-yellow-400 mr-1"></i>
-                        <span class="text-sm text-gray-600">{{ course.rating or 0 }}</span>
-                    </div>
-                </div>
-
-                <p class="text-gray-600 text-sm mb-4 line-clamp-2">{{ course.description }}</p>
-
-                <div class="flex items-center justify-between text-sm text-gray-500 mb-4">
-                    <div class="flex items-center">
-                        <i class="fas fa-signal mr-1"></i>
-                        <span>{{ course.level }}</span>
-                    </div>
-                    <div class="flex items-center">
-                        <i class="fas fa-users mr-1"></i>
-                        <span>{{ course.students_enrolled or 0 }} students</span>
-                    </div>
-                </div>
-
-                <!-- Progress Bar -->
-                <div class="mb-4">
-                    <div class="flex justify-between text-xs text-gray-600 mb-1">
-                        <span>Course Progress</span>
-                        <span>85%</span>
-                    </div>
-                    <div class="w-full bg-gray-200 rounded-full h-2">
-                        <div class="bg-primary h-2 rounded-full" style="width: 85%"></div>
-                    </div>
-                </div>
-
-                <!-- Action Buttons -->
-                <div class="flex space-x-2">
-                    <a href="{{ url_for('educator_course_detail', course_id=course._id) }}"
-                       class="flex-1 bg-primary border border-transparent rounded-md py-2 px-3 flex items-center justify-center text-sm font-medium text-white hover:bg-blue-700 transition-colors">
-                        <i class="fas fa-eye mr-2"></i>
-                        View
-                    </a>
-                    <a href="{{ url_for('educator_edit_course', course_id=course._id) }}"
-                       class="flex-1 bg-gray-100 border border-gray-300 rounded-md py-2 px-3 flex items-center justify-center text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors">
-                        <i class="fas fa-edit mr-2"></i>
-                        Edit
-                    </a>
-                </div>
-            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </div>
 
-    <!-- Empty State -->
-    {% if courses|length == 0 %}
-    <div class="text-center py-12">
-        <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-book text-gray-400 text-2xl"></i>
+        <!-- List View (if needed) -->
+        <div x-show="viewMode === 'list'" class="space-y-4">
+            <!-- List view implementation here -->
         </div>
-        <h3 class="text-lg font-medium text-gray-900">No courses found</h3>
-        <p class="text-gray-500 mt-2">Get started by creating your first course.</p>
-        <div class="mt-6">
+
+        <!-- Empty State -->
+        {% if not courses %}
+        <div class="text-center py-16">
+            <i class="fas fa-book-open text-6xl text-gray-300 mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">No courses yet</h3>
+            <p class="text-gray-500 mb-4">Get started by creating your first course</p>
             <a href="{{ url_for('educator_create_course') }}"
                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700">
                 <i class="fas fa-plus mr-2"></i>
-                Create Your First Course
+                Create Course
             </a>
         </div>
-    </div>
-    {% endif %}
+        {% endif %}
 
-    <!-- Delete Confirmation Modal -->
-    <div x-show="showDeleteModal"
-         x-transition:enter="ease-out duration-300"
-         x-transition:enter-start="opacity-0"
-         x-transition:enter-end="opacity-100"
-         x-transition:leave="ease-in duration-200"
-         x-transition:leave-start="opacity-100"
-         x-transition:leave-end="opacity-0"
-         class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
-         style="display: none;">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3 text-center">
-                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-                    <i class="fas fa-exclamation-triangle text-red-600"></i>
-                </div>
-                <h3 class="text-lg font-medium text-gray-900 mt-2">Delete This Course</h3>
-                <div class="mt-2 px-7 py-3">
-                    <p class="text-sm text-gray-500" x-text="deleteMessage"></p>
-                </div>
-                <div class="items-center px-4 py-3">
-                    <button @click="confirmDelete()"
-                            class="px-4 py-2 bg-red-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-700">
-                        Delete Course
-                    </button>
-                    <button @click="showDeleteModal = false"
-                            class="mt-3 px-4 py-2 bg-gray-100 text-gray-700 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-200">
-                        Cancel
-                    </button>
+        <!-- Delete Confirmation Modal -->
+        <div x-show="showDeleteModal"
+             x-cloak
+             class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+             @click.self="showDeleteModal = false">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                        <i class="fas fa-exclamation-triangle text-red-600"></i>
+                    </div>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4">Delete Course</h3>
+                    <div class="mt-2 px-7 py-3">
+                        <p class="text-sm text-gray-500" x-text="deleteMessage"></p>
+                    </div>
+                    <div class="items-center px-4 py-3">
+                        <button @click="confirmDelete()"
+                                class="px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                            Delete Course
+                        </button>
+                        <button @click="showDeleteModal = false"
+                                class="mt-3 px-4 py-2 bg-gray-100 text-gray-700 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300">
+                            Cancel
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
+<style>
+[x-cloak] { display: none !important; }
+</style>
+
 <script>
+// Define Alpine.js component
 function coursesPage() {
     return {
-        showFilters: false,
+        viewMode: 'grid',
+        searchQuery: '',
+        statusFilter: '',
+        levelFilter: '',
+        categoryFilter: '',
+        sortBy: 'newest',
         showDeleteModal: false,
-        deleteMessage: '',
         courseToDelete: null,
+        deleteMessage: '',
+
+        init() {
+            // Initialize Alpine component
+            console.log('Courses page initialized');
+        },
+
+        shouldShowCourse(status) {
+            if (!this.statusFilter) return true;
+            return status === this.statusFilter;
+        },
+
+        filterCourses() {
+            // Implement filtering logic
+            console.log('Filtering courses...');
+        },
 
         publishCourse(courseId) {
             if (confirm('Are you sure you want to publish this course?')) {
@@ -413,7 +447,7 @@ function coursesPage() {
 
         deleteCourse(courseId, courseTitle) {
             this.courseToDelete = courseId;
-            this.deleteMessage = `Are you sure you want to delete "${courseTitle}"? This action cannot be undone.`;
+            this.deleteMessage = `Are you sure you want to delete "${courseTitle}"? This action cannot be undone and will remove all associated modules and content.`;
             this.showDeleteModal = true;
         },
 
@@ -442,6 +476,15 @@ function coursesPage() {
         }
     }
 }
-</script>
 
+// Ensure Alpine is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if Alpine is available
+    if (typeof Alpine !== 'undefined') {
+        console.log('Alpine.js loaded successfully');
+    } else {
+        console.error('Alpine.js not loaded');
+    }
+});
+</script>
 {% endblock %}

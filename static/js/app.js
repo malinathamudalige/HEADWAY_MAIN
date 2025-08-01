@@ -68,18 +68,19 @@ function initializeApp() {
  * Auto-hide flash messages with smooth animation
  */
 function initializeFlashMessages() {
-    const flashMessages = document.querySelectorAll('[class*="bg-red-50"], [class*="bg-green-50"], [class*="bg-yellow-50"], [class*="bg-blue-50"]');
+    // Only select elements we’ve explicitly marked as flash messages:
+    const flashMessages = document.querySelectorAll('.flash-message');
 
     flashMessages.forEach(function(message, index) {
         // Add fade-in animation
         message.classList.add('fade-in');
 
-        // Auto-hide after delay
+        // Auto-hide after a short delay
         setTimeout(function() {
             hideFlashMessage(message);
         }, AppConfig.notificationDuration + (index * 200));
 
-        // Add close button if not present
+        // Add close button if not already present
         if (!message.querySelector('.close-button')) {
             addCloseButton(message);
         }
@@ -106,6 +107,7 @@ function addCloseButton(message) {
         hideFlashMessage(message);
     };
 
+    // Assume your flash-message markup has a <p> or similar as the container
     const messageContent = message.querySelector('p');
     if (messageContent) {
         messageContent.appendChild(closeButton);
