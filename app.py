@@ -304,6 +304,7 @@ def student_courses():
                            available_courses=available_courses)
 
 
+#Route Changed
 @app.route('/student/course/<course_id>')
 @role_required(['student'])
 def student_course_detail(course_id):
