@@ -1,0 +1,148 @@
+<!-- templates/educator/create_quiz.html -->
+{% extends "base.html" %}
+
+{% block title %}Create Quiz - {{ module.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-8" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-4">
+            <li>
+                <a href="{{ url_for('educator_dashboard') }}" class="text-gray-400 hover:text-gray-500">
+                    <i class="fas fa-home"></i>
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mx-4"></i>
+                    <a href="{{ url_for('educator_courses') }}" class="text-gray-400 hover:text-gray-500">My Courses</a>
+                </div>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mx-4"></i>
+                    <a href="{{ url_for('educator_course_detail', course_id=course._id) }}" class="text-gray-400 hover:text-gray-500">{{ course.title }}</a>
+                </div>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mx-4"></i>
+                    <span class="text-gray-500">Create Quiz</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Create Quiz</h1>
+        <p class="text-gray-600">Design a 10-question multiple choice quiz for <span class="font-semibold">{{ module.title }}</span>.</p>
+    </div>
+
+    <!-- Quiz Creation Form -->
+    <form method="POST" action="{{ url_for('educator_create_quiz_post', module_id=module._id) }}" class="space-y-6">
+        <!-- Quiz Details -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">Quiz Details</h2>
+            </div>
+            <div class="p-6 space-y-6">
+                <!-- Title -->
+                <div>
+                    <label for="title" class="block text-sm font-medium text-gray-700">Quiz Title *</label>
+                    <input type="text" name="title" id="title" required
+                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+                           placeholder="Enter quiz title">
+                    <p class="mt-1 text-sm text-gray-500">Choose a descriptive name for this quiz.</p>
+                </div>
+
+                <!-- Time Limit and Passing Score -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="time_limit" class="block text-sm font-medium text-gray-700">Time Limit (minutes)</label>
+                        <input type="number" name="time_limit" id="time_limit" min="1"
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+                               placeholder="e.g., 30">
+                        <p class="mt-1 text-sm text-gray-500">Specify how many minutes students have to complete the quiz. Default is 30.</p>
+                    </div>
+                    <div>
+                        <label for="passing_score" class="block text-sm font-medium text-gray-700">Passing Score (%)</label>
+                        <input type="number" name="passing_score" id="passing_score" min="1" max="100"
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+                               placeholder="e.g., 70">
+                        <p class="mt-1 text-sm text-gray-500">Percentage required to pass. Default is 70%.</p>
+                    </div>
+                </div>
+
+                <!-- Instructions -->
+                <div>
+                    <label for="instructions" class="block text-sm font-medium text-gray-700">Instructions</label>
+                    <textarea name="instructions" id="instructions" rows="3"
+                              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+                              placeholder="Provide any special instructions for the quiz (optional)"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Questions Section -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">Questions (10 total)</h2>
+                <p class="mt-1 text-sm text-gray-500">Enter each question along with five answer options and select the correct one.</p>
+            </div>
+            <div class="p-6 space-y-8">
+                {% for i in range(1, 11) %}
+                <div class="border rounded-md p-4 bg-gray-50">
+                    <h3 class="text-md font-semibold text-gray-800 mb-3">Question {{ i }}</h3>
+                    <!-- Question Text -->
+                    <div class="mb-4">
+                        <label for="question_{{ i }}" class="block text-sm font-medium text-gray-700">Question {{ i }} Text *</label>
+                        <input type="text" name="question_{{ i }}" id="question_{{ i }}" required
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+                               placeholder="Enter the question text here">
+                    </div>
+                    <!-- Options Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        {% for j in range(1, 6) %}
+                        <div>
+                            <label for="question_{{ i }}_option_{{ j }}" class="block text-sm font-medium text-gray-700">Option {{ j }}</label>
+                            <input type="text" name="question_{{ i }}_option_{{ j }}" id="question_{{ i }}_option_{{ j }}" required
+                                   class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+                                   placeholder="Option {{ j }} text">
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <!-- Correct Answer Selection -->
+                    <div class="mt-4">
+                        <label for="question_{{ i }}_correct" class="block text-sm font-medium text-gray-700">Correct Answer</label>
+                        <select name="question_{{ i }}_correct" id="question_{{ i }}_correct" required
+                                class="mt-1 block w-40 border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                            {% for j in range(0, 5) %}
+                            <option value="{{ j }}">Option {{ j + 1 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="flex items-center justify-between pt-6 border-t border-gray-200">
+            <div class="flex space-x-3">
+                <a href="{{ url_for('educator_course_detail', course_id=course._id) }}"
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    Cancel
+                </a>
+            </div>
+            <button type="submit"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-blue-700">
+                <i class="fas fa-save mr-2"></i>
+                Save Quiz
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
