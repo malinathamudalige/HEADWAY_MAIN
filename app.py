@@ -328,7 +328,7 @@ def student_course_detail(course_id):
     # Check if student is enrolled
     enrollment = EnrollmentModel.find_enrollment(user_id, course_id)
 
-    return render_template('student/course_detail.html',
+    return render_template('student/course_detail_student.html',
                            user=convert_objectid_to_str(user),
                            course=convert_objectid_to_str(course),
                            modules=course_modules,
