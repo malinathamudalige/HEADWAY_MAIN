@@ -11,13 +11,11 @@ from utils.system_monitor import initialize_system_monitor, get_system_monitor
 import csv
 import io
 from flask import make_response
-from pymongo import MongoClient
 
 
 
 
 # Import MongoDB models
-#
 from database import (
     UserModel, CourseModel, ModuleModel, EnrollmentModel,
     AssessmentModel, BadgeModel, AnalyticsModel, QuizModel,
@@ -37,7 +35,7 @@ app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
 # Initialize system monitor with your MongoDB configuration
 system_monitor = initialize_system_monitor(
     mongo_uri=app.config.get('MONGO_URI'),
-    db_name='HEADWAY_MAIN'
+    db_name='headway_elearning'
 )
 
 
@@ -120,10 +118,7 @@ def login():
             # NEW: Check if user is active
             user_status = user.get('status', 'active')
             if user_status != 'active':
-                if user.get('activation_required', False):
-                    flash ('Your Account need to be admin approval', 'warning')
-                else:
-                    flash('Your account has been deactivated. Please contact the administrator for assistance.', 'error')
+                flash('Your account has been deactivated. Please contact the administrator for assistance.', 'error')
                 return render_template('auth/login.html')
 
             # Proceed with normal login
@@ -164,11 +159,8 @@ def register():
             user_data = {
                 'name': name,
                 'email': email,
-                'password': password,
-                'status':'inactive',# Will be hashed in UserModel.create_user
+                'password': password,  # Will be hashed in UserModel.create_user
                 'role': role,
-                'created_at': datetime.now(),
-                'activation_required':True,
                 'avatar': '/static/images/default.jpg'
             }
 
@@ -186,7 +178,7 @@ def register():
                 })
 
             user_id = UserModel.create_user(user_data)
-            flash('Registration successful! Please Contact admin for activation', 'success')
+            flash('Registration successful! Please log in.', 'success')
             return redirect(url_for('login'))
 
     return render_template('auth/register.html')
@@ -312,7 +304,6 @@ def student_courses():
                            available_courses=available_courses)
 
 
-#Route Changed
 @app.route('/student/course/<course_id>')
 @role_required(['student'])
 def student_course_detail(course_id):
@@ -337,6 +328,9 @@ def student_course_detail(course_id):
     # Check if student is enrolled
     enrollment = EnrollmentModel.find_enrollment(user_id, course_id)
 
+    # Render a student‑specific course page.  Use a distinct template
+    # (course_view.html) to avoid conflicts with the similarly named
+    # educator page and ensure the student sees the correct interface.
     return render_template('student/course_detail_student.html',
                            user=convert_objectid_to_str(user),
                            course=convert_objectid_to_str(course),
@@ -1516,6 +1510,156 @@ def educator_edit_module(module_id):
                            user=convert_objectid_to_str(user),
                            course=convert_objectid_to_str(course),
                            module=convert_objectid_to_str(module))
+
+
+# =====================================================
+# QUIZ CREATION ROUTES FOR EDUCATORS
+# =====================================================
+
+@app.route('/educator/module/<module_id>/quiz/new', methods=['GET'])
+@role_required(['educator'])
+def educator_create_quiz(module_id):
+    """Display a form to create a new quiz for a module.
+
+    This view ensures that the current user owns the module's course and
+    passes the module and course details to the template.  A new quiz
+    can only be created by an educator for their own course.  If the
+    module does not exist or the educator does not own the course, the
+    user is redirected back to the course listing with an error.
+    """
+    user = get_current_user()
+
+    # Fetch module and course details
+    module = ModuleModel.find_module_by_id(module_id)
+    if not module:
+        flash('Module not found!', 'error')
+        return redirect(url_for('educator_courses'))
+
+    course = CourseModel.find_course_by_id(module['course_id']) if module else None
+    if not course or course.get('instructor_id') != str(user['_id']):
+        flash('Course not found or access denied!', 'error')
+        return redirect(url_for('educator_courses'))
+
+    # Pass data to the form
+    return render_template(
+        'educator/create_quiz.html',
+        user=convert_objectid_to_str(user),
+        module=convert_objectid_to_str(module),
+        course=convert_objectid_to_str(course)
+    )
+
+
+@app.route('/educator/module/<module_id>/quiz/new', methods=['POST'])
+@role_required(['educator'])
+def educator_create_quiz_post(module_id):
+    """Handle submission of a new quiz for a module.
+
+    This route reads the posted form data, constructs a quiz document
+    conforming to the existing schema (including a list of questions
+    with options and the index of the correct answer), and inserts it
+    into the assessments collection via QuizModel.create_quiz.  The
+    module is also updated to reflect its type as a quiz.  On
+    successful creation the educator is redirected back to the course
+    detail page.
+    """
+    user = get_current_user()
+
+    # Fetch module and course
+    module = ModuleModel.find_module_by_id(module_id)
+    if not module:
+        flash('Module not found!', 'error')
+        return redirect(url_for('educator_courses'))
+
+    course = CourseModel.find_course_by_id(module['course_id']) if module else None
+    if not course or course.get('instructor_id') != str(user['_id']):
+        flash('Course not found or access denied!', 'error')
+        return redirect(url_for('educator_courses'))
+
+    try:
+        # Read basic quiz information
+        title = request.form.get('title', '').strip()
+        time_limit = request.form.get('time_limit', '').strip()
+        passing_score = request.form.get('passing_score', '').strip()
+        instructions = request.form.get('instructions', '').strip()
+
+        # Validate required fields
+        if not title:
+            flash('Quiz title is required.', 'error')
+            return redirect(url_for('educator_create_quiz', module_id=module_id))
+
+        # Convert numeric fields
+        try:
+            time_limit_int = int(time_limit) if time_limit else 30
+        except ValueError:
+            time_limit_int = 30
+
+        try:
+            passing_score_int = int(passing_score) if passing_score else 70
+        except ValueError:
+            passing_score_int = 70
+
+        # Build questions list (10 questions, each with 5 options)
+        questions = []
+        for i in range(1, 11):
+            q_text = request.form.get(f'question_{i}', '').strip()
+            # Skip completely empty questions
+            if not q_text:
+                continue
+
+            options = []
+            for j in range(1, 6):
+                opt = request.form.get(f'question_{i}_option_{j}', '').strip()
+                options.append(opt)
+
+            # Determine correct answer index
+            correct_index_str = request.form.get(f'question_{i}_correct', '0')
+            try:
+                correct_index = int(correct_index_str)
+            except ValueError:
+                correct_index = 0
+
+            # Add question dictionary
+            questions.append({
+                'question': q_text,
+                'options': options,
+                'correct_answer': correct_index,
+                'explanation': ''  # Explanation left blank in form
+            })
+
+        # Ensure at least one question
+        if not questions:
+            flash('Please provide at least one question.', 'error')
+            return redirect(url_for('educator_create_quiz', module_id=module_id))
+
+        total_questions = len(questions)
+        total_points = total_questions * 10
+
+        # Construct quiz document
+        quiz_data = {
+            'module_id': module_id,
+            'course_id': course['_id'],
+            'title': title,
+            'questions': questions,
+            'time_limit': time_limit_int,
+            'passing_score': passing_score_int,
+            'total_questions': total_questions,
+            'total_points': total_points,
+            'instructions': instructions if instructions else f'Answer all {total_questions} questions.',
+            'quiz_type': 'multiple_choice'
+        }
+
+        # Insert quiz into database
+        QuizModel.create_quiz(quiz_data)
+
+        # Optionally mark module type as quiz
+        ModuleModel.update_module(module_id, {'type': 'quiz'})
+
+        flash('Quiz created successfully!', 'success')
+        return redirect(url_for('educator_course_detail', course_id=course['_id']))
+    except Exception as e:
+        print(f"Error creating quiz: {e}")
+        flash('An error occurred while creating the quiz.', 'error')
+        return redirect(url_for('educator_create_quiz', module_id=module_id))
 
 
 @app.route('/educator/module/<module_id>/edit', methods=['POST'])
