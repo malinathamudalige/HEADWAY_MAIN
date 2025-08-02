@@ -19,7 +19,7 @@ from flask import make_response
 from database import (
     UserModel, CourseModel, ModuleModel, EnrollmentModel,
     AssessmentModel, BadgeModel, AnalyticsModel, QuizModel,
-    QuizResultModel, LeaderboardModel, mongo_db
+    QuizResultModel, LeaderboardModel, MessageModel, mongo_db
 )
 
 # Load environment variables
@@ -118,13 +118,8 @@ def login():
             # NEW: Check if user is active
             user_status = user.get('status', 'active')
             if user_status != 'active':
-                if user.get('activation_required', False):
-                    flash('Your Account need to be admin approval', 'warning')
-                else:
-                    flash('Your account has been deactivated. Please contact the administrator for assistance.',
-                          'error')
+                flash('Your account has been deactivated. Please contact the administrator for assistance.', 'error')
                 return render_template('auth/login.html')
-
 
             # Proceed with normal login
             session['user_id'] = str(user['_id'])
@@ -164,11 +159,8 @@ def register():
             user_data = {
                 'name': name,
                 'email': email,
-                'password': password,
-                'status': 'inactive',  # Will be hashed in UserModel.create_user
+                'password': password,  # Will be hashed in UserModel.create_user
                 'role': role,
-                'created_at': datetime.now(),
-                'activation_required': True,
                 'avatar': '/static/images/default.jpg'
             }
 
@@ -186,7 +178,7 @@ def register():
                 })
 
             user_id = UserModel.create_user(user_data)
-            flash('Registration successful! Please Contact admin for activation', 'success')
+            flash('Registration successful! Please log in.', 'success')
             return redirect(url_for('login'))
 
     return render_template('auth/register.html')
@@ -273,6 +265,14 @@ def student_dashboard():
         {'action': 'Earned Badge', 'course': 'Grammar Master', 'time': '3 days ago'}
     ]
 
+    # Retrieve messages for this student
+    messages = MessageModel.get_messages_for_user(user_id)
+    # Convert ObjectId fields to strings and attach sender name
+    for msg in messages:
+        convert_objectid_to_str(msg)
+        sender = UserModel.find_user_by_id(msg.get('sender_id'))
+        msg['sender_name'] = sender['name'] if sender else 'Educator'
+
     # Get badges
     all_badges = BadgeModel.get_all_badges()
     badges_dict = {badge['name'].lower().replace(' ', '_'): badge for badge in all_badges}
@@ -284,7 +284,8 @@ def student_dashboard():
                            completed_courses=completed_courses,
                            avg_progress=avg_progress,
                            recent_activity=recent_activity,
-                           badges=badges_dict)
+                           badges=badges_dict,
+                           messages=messages)
 
 
 @app.route('/student/courses')
@@ -2203,6 +2204,67 @@ def quiz_results_overview(course_id, quiz_id):
                            course=convert_objectid_to_str(course),
                            quiz=convert_objectid_to_str(quiz),
                            results=enhanced_results)
+
+
+# =====================================================
+# EDUCATOR MESSAGES ROUTES
+# =====================================================
+
+@app.route('/educator/messages')
+@role_required(['educator'])
+def educator_messages():
+    """Display the educator message dashboard with student selector and form."""
+    user = get_current_user()
+    # Fetch all students to populate dropdown
+    all_users = UserModel.get_all_users()
+    students = []
+    for u in all_users:
+        if u.get('role') == 'student':
+            students.append(convert_objectid_to_str(u.copy()))
+    return render_template('educator/message.html',
+                           user=convert_objectid_to_str(user),
+                           students=students)
+
+
+@app.route('/educator/messages/send', methods=['POST'])
+@role_required(['educator'])
+def educator_send_message():
+    """Handle sending a message from educator to a selected student."""
+    user = get_current_user()
+    recipient_id = request.form.get('recipient_id')
+    content = request.form.get('content', '').strip()
+    if not recipient_id or not content:
+        flash('Please select a student and enter a message.', 'error')
+        return redirect(url_for('educator_messages'))
+    try:
+        message_data = {
+            'sender_id': str(user['_id']),
+            'recipient_id': recipient_id,
+            'content': content
+        }
+        MessageModel.send_message(message_data)
+        flash('Message sent successfully!', 'success')
+    except Exception as e:
+        print(f"Error sending message: {e}")
+        flash('An error occurred while sending the message.', 'error')
+    return redirect(url_for('educator_messages'))
+
+
+# =====================================================
+# STUDENT MESSAGE ROUTE
+# =====================================================
+
+@app.route('/student/message/<message_id>/dismiss', methods=['POST'])
+@role_required(['student'])
+def dismiss_message(message_id):
+    """Allow a student to dismiss a notification message."""
+    try:
+        MessageModel.dismiss_message(message_id)
+        flash('Notification dismissed.', 'success')
+    except Exception as e:
+        print(f"Error dismissing message: {e}")
+        flash('An error occurred while dismissing the notification.', 'error')
+    return redirect(url_for('student_dashboard'))
 
 
 # =====================================================

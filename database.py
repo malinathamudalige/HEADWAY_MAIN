@@ -56,6 +56,9 @@ analytics_collection = mongo_db.db.analytics
 quiz_results_collection = mongo_db.db.quiz_results
 leaderboard_collection = mongo_db.db.leaderboards
 
+# Collection for messages (educator-to-student communication)
+messages_collection = mongo_db.db.messages
+
 
 class UserModel:
     @staticmethod
@@ -388,6 +391,51 @@ class QuizResultModel:
         )
 
 
+# -----------------------------------------------------------------------------
+# Message Model
+# -----------------------------------------------------------------------------
+class MessageModel:
+    @staticmethod
+    def send_message(message_data):
+        """Send a new message from educator to student.
+
+        message_data should include:
+            - sender_id: the educator's user ID (string)
+            - recipient_id: the student's user ID (string)
+            - content: the message body (string)
+        Additional fields like created_at and status are added automatically.
+        """
+        message_data = message_data.copy()
+        message_data['created_at'] = datetime.now()
+        # status can be 'unread', 'dismissed'
+        message_data['status'] = 'unread'
+        result = messages_collection.insert_one(message_data)
+        return str(result.inserted_id)
+
+    @staticmethod
+    def get_messages_for_user(user_id):
+        """Retrieve all active messages for a user (student).
+
+        Returns messages where recipient_id matches and status is not 'dismissed'.
+        """
+        messages = list(messages_collection.find({
+            'recipient_id': user_id,
+            'status': {'$ne': 'dismissed'}
+        }).sort('created_at', -1))
+        return messages
+
+    @staticmethod
+    def dismiss_message(message_id):
+        """Mark a message as dismissed so it no longer appears on dashboard."""
+        if isinstance(message_id, str):
+            message_id = ObjectId(message_id)
+        return messages_collection.update_one(
+            {'_id': message_id},
+            {'$set': {'status': 'dismissed'}}
+        )
+
+
+
 class LeaderboardModel:
     @staticmethod
     def update_leaderboard(quiz_result):
@@ -684,6 +732,10 @@ def create_indexes():
         # Analytics indexes
         analytics_collection.create_index("type")
         analytics_collection.create_index([("type", 1), ("course_id", 1)])
+
+        # Messages indexes
+        messages_collection.create_index("recipient_id")
+        messages_collection.create_index("sender_id")
 
         print("✅ Database indexes created successfully")
 

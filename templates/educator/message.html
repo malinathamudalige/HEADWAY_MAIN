@@ -1,0 +1,65 @@
+<!-- templates/educator/message.html -->
+{% extends "base.html" %}
+
+{% block title %}Message Students - Headway E-Learning{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Message Students</h1>
+        <p class="mt-2 text-gray-600">Send a direct message to any enrolled student.</p>
+    </div>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="space-y-2 mb-6">
+            {% for category, message in messages %}
+                <div class="rounded-md p-4 {{ 'bg-green-50 border-green-200 text-green-700' if category == 'success' else 'bg-red-50 border-red-200 text-red-700' }} border">
+                    {{ message }}
+                </div>
+            {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Message Form Card -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">Send a New Message</h2>
+        </div>
+        <div class="p-6">
+            <form method="POST" action="{{ url_for('educator_send_message') }}" class="space-y-4">
+                <div>
+                    <label for="recipient_id" class="block text-sm font-medium text-gray-700">Select Student *</label>
+                    <select name="recipient_id" id="recipient_id" required
+                            class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm">
+                        <option value="" disabled selected>Choose a student</option>
+                        {% for student in students %}
+                        <option value="{{ student._id }}">{{ student.name }} - {{ student.email }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="content" class="block text-sm font-medium text-gray-700">Message *</label>
+                    <textarea name="content" id="content" rows="4" required
+                              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+                              placeholder="Type your message here..."></textarea>
+                </div>
+                <div class="flex justify-end">
+                    <a href="{{ url_for('educator_dashboard') }}"
+                       class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 mr-2">
+                        Cancel
+                    </a>
+                    <button type="submit"
+                            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+                        <i class="fas fa-paper-plane mr-2"></i>
+                        Send Message
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
