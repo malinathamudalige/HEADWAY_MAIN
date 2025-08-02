@@ -19,7 +19,7 @@ from flask import make_response
 from database import (
     UserModel, CourseModel, ModuleModel, EnrollmentModel,
     AssessmentModel, BadgeModel, AnalyticsModel, QuizModel,
-    QuizResultModel, LeaderboardModel, MessageModel, mongo_db
+    QuizResultModel, LeaderboardModel, MessageModel, UpdateModel, mongo_db
 )
 
 # Load environment variables
@@ -273,6 +273,11 @@ def student_dashboard():
         sender = UserModel.find_user_by_id(msg.get('sender_id'))
         msg['sender_name'] = sender['name'] if sender else 'Educator'
 
+    # Retrieve updates for this student (new modules/quizzes)
+    updates = UpdateModel.get_updates_for_user(user_id)
+    for upd in updates:
+        convert_objectid_to_str(upd)
+
     # Get badges
     all_badges = BadgeModel.get_all_badges()
     badges_dict = {badge['name'].lower().replace(' ', '_'): badge for badge in all_badges}
@@ -285,7 +290,8 @@ def student_dashboard():
                            avg_progress=avg_progress,
                            recent_activity=recent_activity,
                            badges=badges_dict,
-                           messages=messages)
+                           messages=messages,
+                           updates=updates)
 
 
 @app.route('/student/courses')
@@ -1657,8 +1663,24 @@ def educator_create_quiz_post(module_id):
             'quiz_type': 'multiple_choice'
         }
 
-        # Insert quiz into database
-        QuizModel.create_quiz(quiz_data)
+        # Insert quiz into database and capture ID
+        quiz_id = QuizModel.create_quiz(quiz_data)
+
+        # Send update notifications to enrolled students
+        try:
+            enrollments = EnrollmentModel.get_course_enrollments(str(course['_id']))
+            for enrollment in enrollments:
+                update_data = {
+                    'user_id': enrollment['user_id'],
+                    'course_id': str(course['_id']),
+                    'module_id': module_id,
+                    'quiz_id': quiz_id,
+                    'title': title,
+                    'type': 'quiz'
+                }
+                UpdateModel.create_update(update_data)
+        except Exception as err:
+            print(f"Error creating updates for new quiz: {err}")
 
         # Optionally mark module type as quiz
         ModuleModel.update_module(module_id, {'type': 'quiz'})
@@ -2050,6 +2072,21 @@ def educator_add_module_action():  # RENAMED FUNCTION
         # Create module
         module_id = ModuleModel.create_module(module_data)
 
+        # Send update notifications to enrolled students
+        try:
+            enrollments = EnrollmentModel.get_course_enrollments(course_id)
+            for enrollment in enrollments:
+                update_data = {
+                    'user_id': enrollment['user_id'],
+                    'course_id': course_id,
+                    'module_id': module_id,
+                    'title': module_data['title'],
+                    'type': 'module'
+                }
+                UpdateModel.create_update(update_data)
+        except Exception as e:
+            print(f"Error creating updates for new module: {e}")
+
         return jsonify({'success': True, 'message': 'Module added successfully', 'module_id': module_id})
 
     except Exception as e:
@@ -2264,6 +2301,23 @@ def dismiss_message(message_id):
     except Exception as e:
         print(f"Error dismissing message: {e}")
         flash('An error occurred while dismissing the notification.', 'error')
+    return redirect(url_for('student_dashboard'))
+
+
+# =====================================================
+# STUDENT UPDATE ROUTE
+# =====================================================
+
+@app.route('/student/update/<update_id>/dismiss', methods=['POST'])
+@role_required(['student'])
+def dismiss_update(update_id):
+    """Allow a student to dismiss an update notification."""
+    try:
+        UpdateModel.dismiss_update(update_id)
+        flash('Update dismissed.', 'success')
+    except Exception as e:
+        print(f"Error dismissing update: {e}")
+        flash('An error occurred while dismissing the update.', 'error')
     return redirect(url_for('student_dashboard'))
 
 

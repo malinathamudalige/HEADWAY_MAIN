@@ -58,6 +58,7 @@ leaderboard_collection = mongo_db.db.leaderboards
 
 # Collection for messages (educator-to-student communication)
 messages_collection = mongo_db.db.messages
+updates_collection = mongo_db.db.updates
 
 
 class UserModel:
@@ -435,6 +436,46 @@ class MessageModel:
         )
 
 
+# -----------------------------------------------------------------------------
+# Update Model for course/module/quiz notifications
+# -----------------------------------------------------------------------------
+class UpdateModel:
+    @staticmethod
+    def create_update(update_data):
+        """Create a new update notification for a student.
+
+        update_data should include:
+            - user_id: recipient student ID (string)
+            - course_id: associated course ID (string)
+            - module_id or quiz_id: ID of the new content (string, optional)
+            - title: title of the module/quiz
+            - type: 'module' or 'quiz'
+        """
+        data = update_data.copy()
+        data['created_at'] = datetime.now()
+        data['status'] = 'unread'
+        result = updates_collection.insert_one(data)
+        return str(result.inserted_id)
+
+    @staticmethod
+    def get_updates_for_user(user_id):
+        """Retrieve active updates (not dismissed) for a given user."""
+        return list(updates_collection.find({
+            'user_id': user_id,
+            'status': {'$ne': 'dismissed'}
+        }).sort('created_at', -1))
+
+    @staticmethod
+    def dismiss_update(update_id):
+        """Mark an update as dismissed."""
+        if isinstance(update_id, str):
+            update_id = ObjectId(update_id)
+        return updates_collection.update_one(
+            {'_id': update_id},
+            {'$set': {'status': 'dismissed'}}
+        )
+
+
 
 class LeaderboardModel:
     @staticmethod
@@ -736,6 +777,10 @@ def create_indexes():
         # Messages indexes
         messages_collection.create_index("recipient_id")
         messages_collection.create_index("sender_id")
+
+        # Updates indexes
+        updates_collection.create_index("user_id")
+        updates_collection.create_index("course_id")
 
         print("✅ Database indexes created successfully")
 
