@@ -956,6 +956,36 @@ def educator_create_course_post():
             flash('Title and description are required!', 'error')
             return redirect(url_for('educator_create_course'))
 
+        # Determine image and optional YouTube video data
+        raw_image = request.form.get('image', '').strip()
+        video_url = ''
+        # If a YouTube URL is provided, extract the video ID and use its thumbnail
+        if raw_image:
+            # Support both youtu.be short links and full youtube.com/watch URLs
+            video_id = None
+            if 'youtu.be/' in raw_image:
+                try:
+                    # e.g. https://youtu.be/5efPtIYdVlA
+                    video_id = raw_image.split('/')[-1].split('?')[0]
+                except Exception:
+                    video_id = None
+            elif 'youtube.com/watch' in raw_image and 'v=' in raw_image:
+                try:
+                    # e.g. https://www.youtube.com/watch?v=5efPtIYdVlA
+                    video_id = raw_image.split('v=')[1].split('&')[0]
+                except Exception:
+                    video_id = None
+            # If we could extract a video ID, build the thumbnail URL
+            if video_id:
+                video_url = raw_image
+                # Use the high-resolution thumbnail; YouTube may fall back to default if not available
+                thumbnail_url = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+                image_url = thumbnail_url
+            else:
+                image_url = raw_image
+        else:
+            image_url = raw_image
+
         # Create course data
         course_data = {
             'title': title,
@@ -968,8 +998,11 @@ def educator_create_course_post():
             'status': 'draft',
             'students_enrolled': 0,
             'rating': 0.0,
-            'image': request.form.get('image', '')
+            'image': image_url
         }
+        # If a YouTube video URL was provided, store it separately so templates can link to it
+        if video_url:
+            course_data['video_url'] = video_url
 
         # Create course
         course_id = CourseModel.create_course(course_data)
@@ -1025,6 +1058,31 @@ def educator_edit_course_post(course_id):
             flash('Title and description are required!', 'error')
             return redirect(url_for('educator_edit_course', course_id=course_id))
 
+        # Determine image and optional YouTube video data for update
+        raw_image = request.form.get('image', '').strip()
+        video_url = ''
+        if raw_image:
+            # parse youtube link if applicable
+            video_id = None
+            if 'youtu.be/' in raw_image:
+                try:
+                    video_id = raw_image.split('/')[-1].split('?')[0]
+                except Exception:
+                    video_id = None
+            elif 'youtube.com/watch' in raw_image and 'v=' in raw_image:
+                try:
+                    video_id = raw_image.split('v=')[1].split('&')[0]
+                except Exception:
+                    video_id = None
+            if video_id:
+                video_url = raw_image
+                thumbnail_url = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+                image_url = thumbnail_url
+            else:
+                image_url = raw_image
+        else:
+            image_url = raw_image
+
         # Update course data
         update_data = {
             'title': title,
@@ -1032,8 +1090,14 @@ def educator_edit_course_post(course_id):
             'level': level,
             'duration': duration,
             'category': category,
-            'image': request.form.get('image', course.get('image', ''))
+            'image': image_url
         }
+        # Manage video_url field
+        if video_url:
+            update_data['video_url'] = video_url
+        else:
+            # If the user provided a non-video URL or cleared the field, remove existing video_url
+            update_data['video_url'] = ''
 
         # Update course
         CourseModel.update_course(course_id, update_data)
@@ -3555,6 +3619,26 @@ def content_manager_create_course_post():
             flash('Selected instructor not found!', 'error')
             return redirect(url_for('content_manager_create_course'))
 
+        # Determine image and optional YouTube video data
+        raw_image = request.form.get('image', '').strip()
+        video_url = ''
+        image_url = raw_image
+        if raw_image:
+            video_id = None
+            if 'youtu.be/' in raw_image:
+                try:
+                    video_id = raw_image.split('/')[-1].split('?')[0]
+                except Exception:
+                    video_id = None
+            elif 'youtube.com/watch' in raw_image and 'v=' in raw_image:
+                try:
+                    video_id = raw_image.split('v=')[1].split('&')[0]
+                except Exception:
+                    video_id = None
+            if video_id:
+                video_url = raw_image
+                image_url = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+
         # Create course data
         course_data = {
             'title': title,
@@ -3567,10 +3651,12 @@ def content_manager_create_course_post():
             'status': 'draft',
             'students_enrolled': 0,
             'rating': 0.0,
-            'image': request.form.get('image', ''),
+            'image': image_url,
             'created_by': str(user['_id']),  # Track who created it
             'created_by_role': 'content_manager'
         }
+        if video_url:
+            course_data['video_url'] = video_url
 
         # Create course
         course_id = CourseModel.create_course(course_data)
@@ -3671,6 +3757,29 @@ def content_manager_edit_course_post(course_id):
             flash('Title and description are required!', 'error')
             return redirect(url_for('content_manager_edit_course', course_id=course_id))
 
+        # Determine image and optional YouTube video data for update
+        raw_image = request.form.get('image', '').strip()
+        video_url = ''
+        if raw_image:
+            video_id = None
+            if 'youtu.be/' in raw_image:
+                try:
+                    video_id = raw_image.split('/')[-1].split('?')[0]
+                except Exception:
+                    video_id = None
+            elif 'youtube.com/watch' in raw_image and 'v=' in raw_image:
+                try:
+                    video_id = raw_image.split('v=')[1].split('&')[0]
+                except Exception:
+                    video_id = None
+            if video_id:
+                video_url = raw_image
+                image_url = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+            else:
+                image_url = raw_image
+        else:
+            image_url = raw_image
+
         # Update course data
         update_data = {
             'title': title,
@@ -3679,8 +3788,13 @@ def content_manager_edit_course_post(course_id):
             'duration': duration,
             'category': category,
             'status': status,
-            'image': request.form.get('image', course.get('image', ''))
+            'image': image_url
         }
+        # Manage video_url field
+        if video_url:
+            update_data['video_url'] = video_url
+        else:
+            update_data['video_url'] = ''
 
         # Update instructor if changed
         if instructor and instructor != course.get('instructor'):

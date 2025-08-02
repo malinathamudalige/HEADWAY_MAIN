@@ -188,9 +188,18 @@
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center">
+                                {# If the course has an associated video, wrap the image in a link to the video #}
+                                {% if course.video_url %}
+                                <a href="{{ course.video_url }}" target="_blank">
+                                    <img class="h-10 w-10 rounded-lg object-cover"
+                                         src="{{ course.image if course.image else 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80' }}"
+                                         alt="{{ course.title }}">
+                                </a>
+                                {% else %}
                                 <img class="h-10 w-10 rounded-lg object-cover"
                                      src="{{ course.image if course.image else 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80' }}"
                                      alt="{{ course.title }}">
+                                {% endif %}
                                 <div class="ml-4">
                                     <div class="text-sm font-medium text-gray-900">{{ course.title }}</div>
                                     <div class="text-sm text-gray-500">{{ course.level }} • {{ course.duration }}</div>

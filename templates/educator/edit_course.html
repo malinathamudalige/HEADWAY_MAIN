@@ -98,11 +98,12 @@
                 </div>
 
                 <div>
-                    <label for="image" class="block text-sm font-medium text-gray-700">Course Image URL</label>
-                    <input type="url" name="image" id="image" value="{{ course.image or '' }}"
+                    <label for="image" class="block text-sm font-medium text-gray-700">Course Image URL or YouTube Link</label>
+                    {# Show the original YouTube URL if available; otherwise display the image URL #}
+                    <input type="url" name="image" id="image" value="{{ course.video_url if course.video_url else course.image or '' }}"
                            class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
                            placeholder="https://example.com/course-image.jpg">
-                    <p class="mt-1 text-sm text-gray-500">Optional: Add an image URL for your course thumbnail</p>
+                    <p class="mt-1 text-sm text-gray-500">Optional: Provide an image URL for the course thumbnail. If you supply a YouTube link, the video’s thumbnail will be used automatically.</p>
                 </div>
             </div>
         </div>
