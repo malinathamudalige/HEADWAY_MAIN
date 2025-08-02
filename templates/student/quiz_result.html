@@ -1,0 +1,159 @@
+<!-- templates/student/quiz_result.html -->
+{#
+  This template displays the outcome of a multiple‑choice quiz for a student.
+
+  It extends the shared base layout and uses Tailwind CSS classes for styling.
+  The template expects the following context variables from the Flask view:
+
+    user   – the authenticated student (converted from MongoDB ObjectId to a plain dict)
+    result – the quiz result document containing score, percentage, grade, answers and question_results
+    quiz   – the quiz document with title, questions, passing_score and time_limit
+    module – the module associated with the quiz (for breadcrumb and back links)
+    course – the course containing the module (for breadcrumb and back links)
+
+  It shows a summary of the student’s performance and then iterates through
+  each question to highlight the student’s answer and the correct answer.
+  Correct answers are highlighted in green and incorrect answers in red.
+#}
+{% extends "base.html" %}
+
+{% block title %}{{ quiz.title }} – Result - Headway E‑Learning{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb navigation -->
+    <nav class="flex mb-8" aria-label="Breadcrumb">
+        <ol class="flex items-center space-x-4 text-sm text-gray-500">
+            <li>
+                <a href="{{ url_for('student_dashboard') }}" class="hover:text-gray-700"><i class="fas fa-home"></i></a>
+            </li>
+            <li class="flex items-center">
+                <i class="fas fa-chevron-right mx-3 text-gray-400"></i>
+                <a href="{{ url_for('student_course_detail', course_id=course._id) }}" class="hover:text-gray-700">{{ course.title }}</a>
+            </li>
+            <li class="flex items-center">
+                <i class="fas fa-chevron-right mx-3 text-gray-400"></i>
+                <a href="{{ url_for('student_module', module_id=module._id) }}" class="hover:text-gray-700">{{ module.title }}</a>
+            </li>
+            <li class="flex items-center">
+                <i class="fas fa-chevron-right mx-3 text-gray-400"></i>
+                <span class="text-gray-900 font-semibold">Result</span>
+            </li>
+        </ol>
+    </nav>
+
+    {# Determine whether the student passed based on the quiz's passing_score (default 70%) #}
+    {% set pass_score = quiz.passing_score or 70 %}
+    {% set passed = result.score_percentage >= pass_score %}
+
+    <!-- Result Summary Header -->
+    <div class="rounded-lg shadow-lg mb-8 {{ 'bg-gradient-to-r from-green-500 to-teal-500' if passed else 'bg-gradient-to-r from-red-500 to-orange-500' }}">
+        <div class="px-8 py-6 text-white">
+            <h1 class="text-3xl font-bold mb-1">{{ quiz.title }}</h1>
+            <p class="text-white text-opacity-80 mb-4">{{ module.title }} • {{ course.title }}</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 text-center">
+                <!-- Score / Total -->
+                <div>
+                    <div class="text-4xl font-extrabold">{{ result.score }}/{{ result.total_questions }}</div>
+                    <div class="text-sm uppercase tracking-wide text-white text-opacity-80 mt-1">Correct</div>
+                </div>
+                <!-- Percentage -->
+                <div>
+                    <div class="text-4xl font-extrabold">{{ '%.1f'|format(result.score_percentage) }}%</div>
+                    <div class="text-sm uppercase tracking-wide text-white text-opacity-80 mt-1">Score</div>
+                </div>
+                <!-- Grade -->
+                <div>
+                    <div class="text-4xl font-extrabold">{{ result.grade }}</div>
+                    <div class="text-sm uppercase tracking-wide text-white text-opacity-80 mt-1">Grade</div>
+                </div>
+                <!-- Passing Score -->
+                <div>
+                    <div class="text-4xl font-extrabold">{{ pass_score }}%</div>
+                    <div class="text-sm uppercase tracking-wide text-white text-opacity-80 mt-1">Pass Mark</div>
+                </div>
+                <!-- Time Taken -->
+                <div>
+                    {% if result.time_taken %}
+                        {% set minutes = (result.time_taken | int) // 60 %}
+                        {% set seconds = (result.time_taken | int) % 60 %}
+                        <div class="text-4xl font-extrabold">{{ '%02d:%02d' % (minutes, seconds) }}</div>
+                        <div class="text-sm uppercase tracking-wide text-white text-opacity-80 mt-1">Time</div>
+                    {% else %}
+                        <div class="text-4xl font-extrabold">–</div>
+                        <div class="text-sm uppercase tracking-wide text-white text-opacity-80 mt-1">Time</div>
+                    {% endif %}
+                </div>
+                <!-- Status -->
+                <div>
+                    <div class="text-4xl font-extrabold">{{ 'Passed' if passed else 'Failed' }}</div>
+                    <div class="text-sm uppercase tracking-wide text-white text-opacity-80 mt-1">Status</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flash messages are handled globally, but you can insert messages here if needed -->
+
+    <!-- Action Buttons -->
+    <div class="flex flex-col sm:flex-row justify-between items-center mb-8 space-y-4 sm:space-y-0 sm:space-x-4">
+        <div class="flex-1"></div>
+        <div class="flex space-x-3">
+            <!-- Retake quiz button -->
+            <a href="{{ url_for('take_quiz', quiz_id=quiz._id) }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white {{ 'bg-green-600 hover:bg-green-700' if passed else 'bg-red-600 hover:bg-red-700' }}">
+                <i class="fas fa-redo mr-2"></i>
+                Retake Quiz
+            </a>
+            <!-- Back to module/course button -->
+            <a href="{{ url_for('student_course_detail', course_id=course._id) }}" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-arrow-left mr-2"></i>
+                Back to Course
+            </a>
+        </div>
+    </div>
+
+    <!-- Detailed Question Results -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">Question Breakdown</h2>
+        </div>
+        <div class="p-6 divide-y divide-gray-200">
+            {% for question in quiz.questions %}
+            {% set q_res = result.question_results[loop.index0] %}
+            <!-- Single question item -->
+            <div class="py-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-3">{{ loop.index }}. {{ question.question }}</h3>
+                <ul class="space-y-2">
+                    {% for option in question.options %}
+                    {% set option_idx = loop.index0 %}
+                    {% set is_correct_option = option_idx == q_res.correct_answer %}
+                    {% set is_user_option = option_idx == q_res.user_answer %}
+                    <li class="p-3 border-2 rounded-lg flex items-start {{ 'border-green-500 bg-green-50' if is_correct_option else ( 'border-red-500 bg-red-50' if is_user_option and not is_correct_option else 'border-gray-200' ) }}">
+                        <div class="mr-3 mt-0.5">
+                            {% if is_correct_option and is_user_option %}
+                                <i class="fas fa-check-circle text-green-600"></i>
+                            {% elif is_correct_option %}
+                                <i class="fas fa-check text-green-600"></i>
+                            {% elif is_user_option %}
+                                <i class="fas fa-times text-red-600"></i>
+                            {% else %}
+                                <i class="far fa-circle text-gray-400"></i>
+                            {% endif %}
+                        </div>
+                        <div class="text-gray-700 {{ 'font-semibold' if is_correct_option or is_user_option else '' }}">
+                            {{ option }}
+                            {% if is_correct_option and not is_user_option %}
+                                <span class="ml-2 text-sm text-green-600">(correct answer)</span>
+                            {% elif is_user_option and not is_correct_option %}
+                                <span class="ml-2 text-sm text-red-600">(your answer)</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
