@@ -118,8 +118,13 @@ def login():
             # NEW: Check if user is active
             user_status = user.get('status', 'active')
             if user_status != 'active':
-                flash('Your account has been deactivated. Please contact the administrator for assistance.', 'error')
+                if user.get('activation_required', False):
+                    flash('Your Account need to be admin approval', 'warning')
+                else:
+                    flash('Your account has been deactivated. Please contact the administrator for assistance.',
+                          'error')
                 return render_template('auth/login.html')
+
 
             # Proceed with normal login
             session['user_id'] = str(user['_id'])
@@ -159,8 +164,11 @@ def register():
             user_data = {
                 'name': name,
                 'email': email,
-                'password': password,  # Will be hashed in UserModel.create_user
+                'password': password,
+                'status': 'inactive',  # Will be hashed in UserModel.create_user
                 'role': role,
+                'created_at': datetime.now(),
+                'activation_required': True,
                 'avatar': '/static/images/default.jpg'
             }
 
@@ -178,7 +186,7 @@ def register():
                 })
 
             user_id = UserModel.create_user(user_data)
-            flash('Registration successful! Please log in.', 'success')
+            flash('Registration successful! Please Contact admin for activation', 'success')
             return redirect(url_for('login'))
 
     return render_template('auth/register.html')
