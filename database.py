@@ -60,6 +60,9 @@ leaderboard_collection = mongo_db.db.leaderboards
 messages_collection = mongo_db.db.messages
 updates_collection = mongo_db.db.updates
 
+# Collection for quizzes (new collection for educator-created quizzes)
+quizzes_collection = mongo_db.db.quizzes
+
 
 class UserModel:
     @staticmethod
@@ -296,43 +299,49 @@ class AssessmentModel:
 class QuizModel:
     @staticmethod
     def create_quiz(quiz_data):
-        """Create a new quiz"""
+        """Create a new quiz in the quizzes collection"""
         quiz_data['created_at'] = datetime.now()
-        result = assessments_collection.insert_one(quiz_data)
+        # ensure module_id and course_id are stored as strings for consistency
+        if 'module_id' in quiz_data and isinstance(quiz_data['module_id'], ObjectId):
+            quiz_data['module_id'] = str(quiz_data['module_id'])
+        if 'course_id' in quiz_data and isinstance(quiz_data['course_id'], ObjectId):
+            quiz_data['course_id'] = str(quiz_data['course_id'])
+        result = quizzes_collection.insert_one(quiz_data)
         return str(result.inserted_id)
 
     @staticmethod
     def find_quiz_by_id(quiz_id):
-        """Find quiz by ID"""
+        """Find quiz by ID from quizzes collection"""
         if isinstance(quiz_id, str):
             quiz_id = ObjectId(quiz_id)
-        return assessments_collection.find_one({'_id': quiz_id})
+        return quizzes_collection.find_one({'_id': quiz_id})
 
     @staticmethod
     def get_module_quiz(module_id):
-        """Get quiz for a specific module"""
-        return assessments_collection.find_one({'module_id': module_id})
+        """Get quiz for a specific module from quizzes collection"""
+        # module_id may be ObjectId or string
+        return quizzes_collection.find_one({'module_id': str(module_id)})
 
     @staticmethod
     def get_quizzes_by_module(module_id):
-        """Get all quizzes by module ID"""
-        return list(assessments_collection.find({'module_id': module_id}))
+        """Get all quizzes by module ID from quizzes collection"""
+        return list(quizzes_collection.find({'module_id': str(module_id)}))
 
     @staticmethod
     def delete_quiz(quiz_id):
-        """Delete quiz"""
+        """Delete quiz from quizzes collection"""
         if isinstance(quiz_id, str):
             quiz_id = ObjectId(quiz_id)
-        return assessments_collection.delete_one({'_id': quiz_id})
+        return quizzes_collection.delete_one({'_id': quiz_id})
 
     @staticmethod
     def update_quiz(quiz_id, update_data):
-        """Update quiz"""
+        """Update quiz in quizzes collection"""
         if isinstance(quiz_id, str):
             quiz_id = ObjectId(quiz_id)
 
         update_data['updated_at'] = datetime.now()
-        return assessments_collection.update_one(
+        return quizzes_collection.update_one(
             {'_id': quiz_id},
             {'$set': update_data}
         )

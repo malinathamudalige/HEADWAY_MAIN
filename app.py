@@ -94,6 +94,30 @@ def convert_objectid_to_str(obj):
                         convert_objectid_to_str(item)
     return obj
 
+# ===========================================================================
+# CONTEXT PROCESSORS
+# ===========================================================================
+
+@app.context_processor
+def inject_user_messages():
+    """Inject student messages into all templates for the navigation bar."""
+    try:
+        user = get_current_user()
+        # Only inject messages for logged-in students
+        if user and user.get('role') == 'student':
+            user_id = str(user['_id'])
+            msgs = MessageModel.get_messages_for_user(user_id)
+            # Convert ObjectIds and attach sender names
+            for msg in msgs:
+                convert_objectid_to_str(msg)
+                sender = UserModel.find_user_by_id(msg.get('sender_id'))
+                msg['sender_name'] = sender['name'] if sender else 'Educator'
+            return {'messages': msgs}
+    except Exception:
+        # In case of any error, do not block the request; return empty context
+        pass
+    return {}
+
 
 # =====================================================
 # AUTHENTICATION ROUTES
@@ -624,6 +648,7 @@ def quiz_result(result_id):
 @app.route('/student/module/<module_id>')
 @role_required(['student'])
 def student_module(module_id):
+    """Display a lesson or quiz module for students. For quiz modules, fetch the quiz from the quizzes collection"""
     user = get_current_user()
 
     # Get module
@@ -635,10 +660,10 @@ def student_module(module_id):
     # Get course
     course = CourseModel.find_course_by_id(module['course_id'])
 
-    # Get assessment if it's a quiz
+    # Get quiz if it's a quiz module
     assessment = None
     if module.get('type') == 'quiz':
-        assessment = AssessmentModel.get_assessment_by_module(module_id)
+        assessment = QuizModel.get_module_quiz(module_id)
 
     return render_template('student/module.html',
                            user=convert_objectid_to_str(user),
@@ -1989,16 +2014,15 @@ def educator_module_analytics_page(module_id):  # RENAMED FUNCTION
     completed_students = len(module.get('completed_by', []))
     completion_rate = (completed_students / total_students * 100) if total_students > 0 else 0
 
-    # Get quiz results if module has quizzes
+        # Get quiz results if module has quizzes
     quiz_results = []
     try:
-        # Try to get assessments, handle if not implemented
-        if hasattr(AssessmentModel, 'get_assessments_by_module'):
-            assessments = AssessmentModel.get_assessments_by_module(module_id)
-            for quiz in assessments:
-                if hasattr(QuizResultModel, 'get_quiz_results'):
-                    results = QuizResultModel.get_quiz_results(str(quiz['_id']))
-                    quiz_results.extend(results)
+        # Fetch quizzes from the quizzes collection
+        quizzes = QuizModel.get_quizzes_by_module(module_id) if hasattr(QuizModel, 'get_quizzes_by_module') else []
+        for q in quizzes:
+            if hasattr(QuizResultModel, 'get_quiz_results'):
+                results = QuizResultModel.get_quiz_results(str(q['_id']))
+                quiz_results.extend(results)
     except Exception as e:
         print(f"Quiz functionality not available: {e}")
         quiz_results = []
@@ -2079,15 +2103,15 @@ def educator_delete_module_action(module_id):  # RENAMED FUNCTION
             return jsonify(
                 {'success': False, 'message': 'Cannot delete module that has been completed by students'}), 400
 
-        # Delete related assessments first
+        # Delete related quizzes first
         try:
-            if hasattr(AssessmentModel, 'get_assessments_by_module'):
-                assessments = AssessmentModel.get_assessments_by_module(module_id)
-                for assessment in assessments:
-                    if hasattr(AssessmentModel, 'delete_assessment'):
-                        AssessmentModel.delete_assessment(str(assessment['_id']))
+            # Fetch quizzes associated with the module and delete them
+            quizzes = QuizModel.get_quizzes_by_module(module_id) if hasattr(QuizModel, 'get_quizzes_by_module') else []
+            for q in quizzes:
+                if hasattr(QuizModel, 'delete_quiz'):
+                    QuizModel.delete_quiz(str(q['_id']))
         except Exception as e:
-            print(f"Assessment cleanup error (non-critical): {e}")
+            print(f"Quiz cleanup error (non-critical): {e}")
 
         # Delete module
         ModuleModel.delete_module(module_id)
@@ -2185,12 +2209,12 @@ def educator_export_module_analytics_csv(module_id):  # RENAMED FUNCTION
         # Get quiz results
         quiz_results = []
         try:
-            if hasattr(AssessmentModel, 'get_assessments_by_module'):
-                assessments = AssessmentModel.get_assessments_by_module(module_id)
-                for assessment in assessments:
-                    if hasattr(QuizResultModel, 'get_quiz_results'):
-                        results = QuizResultModel.get_quiz_results(str(assessment['_id']))
-                        quiz_results.extend(results)
+            # Fetch quizzes associated with the module and collect results
+            quizzes = QuizModel.get_quizzes_by_module(module_id) if hasattr(QuizModel, 'get_quizzes_by_module') else []
+            for q in quizzes:
+                if hasattr(QuizResultModel, 'get_quiz_results'):
+                    results = QuizResultModel.get_quiz_results(str(q['_id']))
+                    quiz_results.extend(results)
         except Exception as e:
             print(f"Quiz results error (non-critical): {e}")
             quiz_results = []

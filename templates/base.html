@@ -278,6 +278,50 @@
                     </div>
                 </div>
                 <div class="flex items-center">
+                    {# Display a message icon for students; clicking it opens a dropdown with messages. Messages are provided by student dashboard #}
+                    {% if current_user.role == 'student' %}
+                    {# Safely handle messages: if not provided, default to an empty list #}
+                    {% set msg_list = messages if messages is defined else [] %}
+                    <div class="relative mr-4" x-data="{ openMsg: false }">
+                        <button @click="openMsg = !openMsg" class="relative p-2 rounded-full text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <i class="fas fa-envelope text-xl"></i>
+                            {% if msg_list|length > 0 %}
+                            <span class="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">{{ msg_list|length }}</span>
+                            {% endif %}
+                        </button>
+                        <div x-show="openMsg"
+                             @click.away="openMsg = false"
+                             x-cloak
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="transform opacity-0 scale-95"
+                             x-transition:enter-end="transform opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-75"
+                             x-transition:leave-start="transform opacity-100 scale-100"
+                             x-transition:leave-end="transform opacity-0 scale-95"
+                             class="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-2 z-50 max-h-96 overflow-y-auto">
+                            {% if msg_list|length > 0 %}
+                                {% for msg in msg_list %}
+                                <div class="px-4 py-3 border-b border-gray-100">
+                                    <p class="text-sm font-semibold text-gray-800">{{ msg.sender_name }}</p>
+                                    <p class="text-sm text-gray-600 mt-1">{{ msg.content }}</p>
+                                    <p class="text-xs text-gray-400 mt-1">
+                                        {% if msg.created_at %}
+                                            {{ msg.created_at.strftime('%b %d, %Y %I:%M %p') }}
+                                        {% endif %}
+                                    </p>
+                                    <form method="POST" action="{{ url_for('dismiss_message', message_id=msg._id) }}" class="mt-2 text-right">
+                                        <button type="submit" class="text-xs text-red-600 hover:text-red-800">Dismiss</button>
+                                    </form>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="px-4 py-3">
+                                    <p class="text-sm text-gray-600">No messages.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
                     <div class="relative" x-data="{ open: false }">
                         <button @click="open = !open" class="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                             <img class="h-8 w-8 rounded-full" src="https://ui-avatars.com/api/?name={{ current_user.name }}&background=3B82F6&color=fff" alt="">
@@ -294,8 +338,6 @@
                              x-transition:leave-start="transform opacity-100 scale-100"
                              x-transition:leave-end="transform opacity-0 scale-95"
                              class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
-                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profile</a>
-                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Settings</a>
                             <a href="{{ url_for('logout') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign out</a>
                         </div>
                     </div>
