@@ -96,10 +96,11 @@
                             <dt class="text-sm font-medium text-gray-500 truncate">Highest Score</dt>
                             <dd class="text-lg font-medium text-gray-900">
                                 {% if leaderboard %}
-                                    {{ leaderboard|max(attribute='best_score') }}%
-                                {% else %}
-                                    0%
-                                {% endif %}
+    {% set top_entry = leaderboard|max(attribute='best_score') %}
+    {{ top_entry.best_score }}%
+{% else %}
+    0%
+{% endif %}
                             </dd>
                         </dl>
                     </div>
