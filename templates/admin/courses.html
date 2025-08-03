@@ -36,13 +36,17 @@
 }
 
 /* Action buttons styling */
+/*
+ * Action buttons container
+ * Use nowrap to prevent buttons from wrapping or being cropped on narrow screens.
+ * Remove min-width constraint so the cell can shrink gracefully across devices.
+ */
 .action-buttons {
-    display: flex;
+    display: inline-flex;
     gap: 4px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-end;
-    /* Allow the buttons to size naturally without truncating contents */
-    min-width: 150px;
+    align-items: center;
     white-space: nowrap;
     overflow: visible;
 }
@@ -325,8 +329,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Modules</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                        {# Removed Rating and Created columns #}
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Edit</th>
                     </tr>
                 </thead>
@@ -343,7 +346,7 @@
                     {% for course in courses %}
                     <tr class="course-row">
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <input type="checkbox" data-course-id="{{ course._id }}" onchange="toggleCourse('{{ course._id }}')" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                            <input type="checkbox" data-course-id="{{ course['_id'] }}" onchange="toggleCourse('{{ course['_id'] }}')" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center">
@@ -373,18 +376,10 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {{ course.modules_count }}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center">
-                                <i class="fas fa-star text-yellow-400 text-sm mr-1"></i>
-                                <span class="text-sm text-gray-900">{{ "%.1f"|format(course.rating or 0) }}</span>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ course.created_at.strftime('%Y-%m-%d') if course.created_at else 'N/A' }}
-                        </td>
+                        {# Removed Rating and Created columns #}
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="action-buttons">
-                                <a href="{{ url_for('admin_edit_course', course_id=course._id) }}" class="action-btn btn-edit">
+                                <a href="{{ url_for('admin_edit_course', course_id=course['_id']) }}" class="action-btn btn-edit">
                                     <i class="fas fa-edit mr-1"></i>
                                 </a>
                             </div>
@@ -392,7 +387,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="9" class="px-6 py-12 text-center">
+                        <td colspan="7" class="px-6 py-12 text-center">
                             <div class="text-gray-500">
                                 <i class="fas fa-book text-4xl mb-4"></i>
                                 <p class="text-lg font-medium">No courses found</p>
