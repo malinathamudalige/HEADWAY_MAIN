@@ -43,9 +43,18 @@
                 <div>
                     <label for="role" class="block text-sm font-medium text-gray-700">Role</label>
                     <select id="role" name="role" class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
-                        <option value="student">Student</option>
-                        <option value="educator">Educator</option>
-                        <option value="content_manager">Content Manager</option>
+                        <option value="student" {% if form_data.role == 'student' %}selected{% endif %}>Student</option>
+                        <option value="educator" {% if form_data.role == 'educator' %}selected{% endif %}>Educator</option>
+                        <option value="content_manager" {% if form_data.role == 'content_manager' %}selected{% endif %}>Content Manager</option>
+                    </select>
+                </div>
+
+                {# Student level selection; appears for students to choose between Beginner Student and Advanced Student. #}
+                <div id="studentLevelDiv">
+                    <label for="student_level" class="block text-sm font-medium text-gray-700">Student Level</label>
+                    <select id="student_level" name="student_level" class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
+                        <option value="Beginner" {% if form_data.student_level == 'Beginner' %}selected{% endif %}>Beginner Student</option>
+                        <option value="Advanced" {% if form_data.student_level == 'Advanced' %}selected{% endif %}>Advanced Student</option>
                     </select>
                 </div>
             </div>
@@ -68,6 +77,28 @@
                 </p>
             </div>
         </form>
+
+        <!-- Show or hide the student level selector based on the chosen role -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const roleSelect = document.getElementById('role');
+                const levelDiv = document.getElementById('studentLevelDiv');
+
+                function toggleLevelSelector() {
+                    if (roleSelect.value === 'student') {
+                        levelDiv.style.display = 'block';
+                    } else {
+                        levelDiv.style.display = 'none';
+                    }
+                }
+
+                // Initialize display on page load
+                toggleLevelSelector();
+
+                // Listen for role changes
+                roleSelect.addEventListener('change', toggleLevelSelector);
+            });
+        </script>
     </div>
 </div>
 {% endblock %}

@@ -168,6 +168,8 @@ def register():
         email = request.form['email']
         password = request.form['password']
         role = request.form.get('role', 'student')
+        # Capture student level for student role; default to Beginner if not provided
+        student_level = request.form.get('student_level', 'Beginner')
 
         # Commit 01
         if len(password) < 8 or not any(c.isdigit() for c in password):
@@ -190,8 +192,10 @@ def register():
 
             # Add role-specific fields
             if role == 'student':
+                # Store the selected student level (Beginner or Advanced). This field
+                # determines which courses the student sees on their dashboard.
                 user_data.update({
-                    'level': 'Beginner',
+                    'level': student_level if student_level in ['Beginner', 'Advanced'] else 'Beginner',
                     'points': 0,
                     'badges': []
                 })
@@ -205,7 +209,8 @@ def register():
             flash('Registration successful! Please log in.', 'success')
             return redirect(url_for('login'))
 
-    return render_template('auth/register.html')
+    # Pass the current request.form so the template always has a form_data context
+    return render_template('auth/register.html', form_data=request.form)
 
 
 @app.route('/logout')
@@ -268,7 +273,8 @@ def student_dashboard():
 
     for enrollment in enrollments:
         course = CourseModel.find_course_by_id(enrollment['course_id'])
-        if course:
+        # Include the course in the dashboard only if it matches the student's level
+        if course and course.get('level') == user.get('level'):
             course_data = convert_objectid_to_str(course.copy())
             course_data.update({
                 'progress': enrollment['progress'],
@@ -335,7 +341,10 @@ def student_courses():
     available_courses = []
     for course in all_courses:
         course_id = str(course['_id'])
-        if course_id not in enrolled_course_ids and course.get('status') == 'published':
+        # Show only courses at the student's level (Beginner or Advanced) and published
+        if (course_id not in enrolled_course_ids and
+                course.get('status') == 'published' and
+                course.get('level') == user.get('level')):
             available_courses.append(convert_objectid_to_str(course))
 
     return render_template('student/courses.html',
@@ -377,30 +386,6 @@ def student_course_detail(course_id):
                            enrollment=convert_objectid_to_str(enrollment) if enrollment else None)
 
 
-# allow students to retake a quiz by deleting their previous result
-@app.route('/student/quiz/<quiz_id>/retake')
-@role_required(['student'])
-def retake_quiz(quiz_id):
-    """Allow a student to retake a quiz by removing their existing result and redirecting to the quiz page."""
-    user = get_current_user()
-    user_id = str(user['_id'])
-    # Look up existing quiz result for this user
-    existing_result = QuizResultModel.find_result(user_id, quiz_id)
-    if existing_result:
-        # Remove existing quiz result document
-        res_id = existing_result.get('_id')
-        if isinstance(res_id, str):
-            res_id = ObjectId(res_id)
-        quiz_results_collection.delete_one({'_id': res_id})
-        # Remove leaderboard entry for this course/user
-        course_id = existing_result.get('course_id')
-        if course_id:
-            leaderboard_collection.delete_one({'user_id': user_id, 'course_id': course_id})
-    # Redirect to take_quiz for a fresh attempt
-    return redirect(url_for('take_quiz', quiz_id=quiz_id))
-
-
-
 # =====================================================
 # ENROLLMENT ROUTES
 # =====================================================
@@ -416,6 +401,11 @@ def enroll_course(course_id):
     course = CourseModel.find_course_by_id(course_id)
     if not course:
         flash('Course not found!', 'error')
+        return redirect(url_for('student_courses'))
+
+    # Restrict enrollment to courses matching the student's level (Beginner or Advanced)
+    if course.get('level') and user.get('level') and course.get('level') != user.get('level'):
+        flash('You are not eligible to enroll in this course based on your current level.', 'error')
         return redirect(url_for('student_courses'))
 
     # Check if already enrolled
@@ -445,6 +435,11 @@ def confirm_enrollment(course_id):
     course = CourseModel.find_course_by_id(course_id)
     if not course:
         flash('Course not found!', 'error')
+        return redirect(url_for('student_courses'))
+
+    # Restrict enrollment to courses matching the student's level
+    if course.get('level') and user.get('level') and course.get('level') != user.get('level'):
+        flash('You are not eligible to enroll in this course based on your current level.', 'error')
         return redirect(url_for('student_courses'))
 
     # Check if already enrolled
@@ -969,16 +964,15 @@ def educator_courses():
     elif sort_by == 'rating_desc':
         filtered_courses.sort(key=lambda x: x.get('rating', 0), reverse=True)
 
-    # Convert ObjectId to string
+    # Convert ObjectId to string for filtered course data
     courses_data = [convert_objectid_to_str(course) for course in filtered_courses]
 
-    # Calculate statistics for the instructor's courses
+    # Calculate statistics for educator's courses (using all courses, not just filtered)
     total_courses = len(educator_courses)
     total_students = sum(course.get('students_enrolled', 0) for course in educator_courses)
     published_courses = sum(1 for course in educator_courses if course.get('status') == 'published')
     avg_rating = (sum(course.get('rating', 0) for course in educator_courses) / total_courses) if total_courses else 0
 
-    # Pass statistics to the template
     return render_template('educator/courses.html',
                            user=convert_objectid_to_str(user),
                            courses=courses_data,
@@ -986,6 +980,7 @@ def educator_courses():
                            total_students=total_students,
                            published_courses=published_courses,
                            avg_rating=avg_rating)
+
 
 @app.route('/educator/course/create')
 @role_required(['educator'])
