@@ -79,27 +79,31 @@
         </div>
 
         <!-- Quiz Form -->
-        <form method="POST" action="{{ url_for('submit_quiz', quiz_id=quiz._id) }}" @submit="submitForm($event)">
+        {# Use bracket notation for quiz ID to avoid Jinja underscore restrictions #}
+        <form method="POST" action="{{ url_for('submit_quiz', quiz_id=quiz['_id']) }}" @submit="submitForm($event)">
             <input type="hidden" name="time_taken" x-model="timeTaken">
 
             <!-- Question Content -->
             <div class="p-8">
                 {% for question in quiz.questions %}
-                <div x-show="currentQuestion === {{ loop.index0 }}" class="question-container">
+                {% set q_index = loop.index0 %}
+                <div x-show="currentQuestion === {{ q_index }}" class="question-container">
                     <div class="mb-6">
                         <h3 class="text-xl font-medium text-gray-900 mb-4">
                             {{ loop.index }}. {{ question.question }}
                         </h3>
 
                         <div class="space-y-3">
+                            {# Iterate through each option and bind by option index #}
                             {% for option in question.options %}
+                            {% set option_index = loop.index0 %}
                             <label class="flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-blue-300 transition-colors option-label"
-                                   :class="answers[{{ loop.index0 }}] === {{ loop.index0 }} ? 'border-blue-500 bg-blue-50' : ''">
+                                   :class="answers[{{ q_index }}] === {{ option_index }} ? 'border-blue-500 bg-blue-50' : ''">
                                 <input type="radio"
-                                       name="question_{{ loop.index0 }}"
-                                       value="{{ loop.index0 }}"
-                                       x-model="answers[{{ loop.index0 }}]"
-                                       @change="markAnswered({{ loop.index0 }})"
+                                       name="question_{{ q_index }}"
+                                       value="{{ option_index }}"
+                                       x-model="answers[{{ q_index }}]"
+                                       @change="markAnswered({{ q_index }})"
                                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300">
                                 <span class="ml-3 text-gray-700">{{ option }}</span>
                             </label>
@@ -245,7 +249,7 @@ setInterval(() => {
         currentQuestion: window.quizApp ? window.quizApp.currentQuestion : 0,
         timeRemaining: window.quizApp ? window.quizApp.timeRemaining : 0
     };
-    localStorage.setItem('quiz_progress_{{ quiz._id }}', JSON.stringify(quizData));
+    localStorage.setItem('quiz_progress_{{ quiz["_id"] }}', JSON.stringify(quizData));
 }, 10000); // Save every 10 seconds
 
 // Warn before leaving page
