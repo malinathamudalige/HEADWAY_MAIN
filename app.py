@@ -972,10 +972,20 @@ def educator_courses():
     # Convert ObjectId to string
     courses_data = [convert_objectid_to_str(course) for course in filtered_courses]
 
+    # Calculate statistics for the instructor's courses
+    total_courses = len(educator_courses)
+    total_students = sum(course.get('students_enrolled', 0) for course in educator_courses)
+    published_courses = sum(1 for course in educator_courses if course.get('status') == 'published')
+    avg_rating = (sum(course.get('rating', 0) for course in educator_courses) / total_courses) if total_courses else 0
+
+    # Pass statistics to the template
     return render_template('educator/courses.html',
                            user=convert_objectid_to_str(user),
-                           courses=courses_data)
-
+                           courses=courses_data,
+                           total_courses=total_courses,
+                           total_students=total_students,
+                           published_courses=published_courses,
+                           avg_rating=avg_rating)
 
 @app.route('/educator/course/create')
 @role_required(['educator'])
