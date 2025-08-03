@@ -377,6 +377,30 @@ def student_course_detail(course_id):
                            enrollment=convert_objectid_to_str(enrollment) if enrollment else None)
 
 
+# allow students to retake a quiz by deleting their previous result
+@app.route('/student/quiz/<quiz_id>/retake')
+@role_required(['student'])
+def retake_quiz(quiz_id):
+    """Allow a student to retake a quiz by removing their existing result and redirecting to the quiz page."""
+    user = get_current_user()
+    user_id = str(user['_id'])
+    # Look up existing quiz result for this user
+    existing_result = QuizResultModel.find_result(user_id, quiz_id)
+    if existing_result:
+        # Remove existing quiz result document
+        res_id = existing_result.get('_id')
+        if isinstance(res_id, str):
+            res_id = ObjectId(res_id)
+        quiz_results_collection.delete_one({'_id': res_id})
+        # Remove leaderboard entry for this course/user
+        course_id = existing_result.get('course_id')
+        if course_id:
+            leaderboard_collection.delete_one({'user_id': user_id, 'course_id': course_id})
+    # Redirect to take_quiz for a fresh attempt
+    return redirect(url_for('take_quiz', quiz_id=quiz_id))
+
+
+
 # =====================================================
 # ENROLLMENT ROUTES
 # =====================================================
